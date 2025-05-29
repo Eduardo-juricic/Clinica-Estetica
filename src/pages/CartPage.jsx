@@ -1,17 +1,21 @@
 // src/pages/CartPage.jsx
 import React, { useState } from "react";
 import { useCart } from "../context/CartContext"; //
-import { Link as RouterLink } from "react-router-dom"; // Mudança para RouterLink
-import { getFunctions, httpsCallable } from "firebase/functions";
-import { db } from "../FirebaseConfig";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { Link as RouterLink } from "react-router-dom";
+import { getFunctions, httpsCallable } from "firebase/functions"; //
+import { db } from "../FirebaseConfig"; //
+import { collection, addDoc, serverTimestamp } from "firebase/firestore"; //
 
 function CartPage() {
-  const { cartItems, updateQuantity, removeItem, getTotal, clearCart } =
-    useCart(); // clearCart está aqui, mas não será usado nesta versão do código. O aviso do ESLint é esperado.
-  const [observation, setObservation] = useState("");
-
-  // Estados para informações do cliente e pagamento
+  // REMOVIDO observation, setObservation. A observação agora é por item.
+  const {
+    cartItems,
+    updateQuantity,
+    removeItem,
+    getTotal,
+    updateItemObservation,
+    clearCart,
+  } = useCart(); // ADICIONADO updateItemObservation
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [cliente, setCliente] = useState({
     nomeCompleto: "",
@@ -29,24 +33,20 @@ function CartPage() {
   const [formErrors, setFormErrors] = useState({});
 
   const handleQuantityChange = (productId, quantity) => {
-    //
     const newQuantity = Math.max(1, parseInt(quantity, 10) || 1);
     updateQuantity(productId, newQuantity);
   };
 
   const handleIncreaseQuantity = (productId, currentQuantity) => {
-    //
     updateQuantity(productId, currentQuantity + 1);
   };
 
   const handleDecreaseQuantity = (productId, currentQuantity) => {
-    //
     const newQuantity = Math.max(1, currentQuantity - 1);
     updateQuantity(productId, newQuantity);
   };
 
   const handleRemoveItem = (productId) => {
-    //
     removeItem(productId);
   };
 
@@ -60,6 +60,7 @@ function CartPage() {
 
   const validateForm = () => {
     const errors = {};
+    // Validação dos campos do cliente (existente)
     if (!cliente.nomeCompleto.trim())
       errors.nomeCompleto = "Nome completo é obrigatório.";
     else if (cliente.nomeCompleto.trim().split(" ").length < 2)
@@ -75,7 +76,8 @@ function CartPage() {
       errors.cpf = "CPF inválido (11 dígitos).";
     if (!cliente.cep.trim()) errors.cep = "CEP é obrigatório.";
     else if (!/^\d{5}-?\d{3}$/.test(cliente.cep.replace(/\D/g, "")))
-      errors.cep = "CEP inválido (use XXXXX ou XXXXX-XXX)."; // Ajustado para aceitar com ou sem hífen, mas salva sem.
+      //
+      errors.cep = "CEP inválido (use XXXXX ou XXXXX-XXX).";
     if (!cliente.logradouro.trim())
       errors.logradouro = "Logradouro é obrigatório.";
     if (!cliente.numero.trim()) errors.numero = "Número é obrigatório.";
@@ -83,29 +85,58 @@ function CartPage() {
     if (!cliente.cidade.trim()) errors.cidade = "Cidade é obrigatória.";
     if (!cliente.estado.trim()) errors.estado = "Estado é obrigatório.";
     else if (!/^[A-Z]{2}$/i.test(cliente.estado))
+      //
       errors.estado = "Estado inválido (sigla com 2 letras).";
+
+    // NOVA VALIDAÇÃO para observações de itens
+    cartItems.forEach((item) => {
+      // Verifica se item.observacaoObrigatoria existe e é true
+      if (
+        item.observacaoObrigatoria &&
+        (!item.observacaoItem || !item.observacaoItem.trim())
+      ) {
+        errors[
+          `observacaoItem_${item.id}`
+        ] = `A observação para ${item.nome} é obrigatória.`;
+      } else if (errors[`observacaoItem_${item.id}`]) {
+        // Limpa o erro se a condição não for mais atendida
+        delete errors[`observacaoItem_${item.id}`];
+      }
+    });
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const total = getTotal(); //
+  const total = getTotal();
 
-  const functionsInstance = getFunctions(undefined, "southamerica-east1");
+  const functionsInstance = getFunctions(undefined, "southamerica-east1"); //
   const createPreferenceCallable = httpsCallable(
     functionsInstance,
     "createPaymentPreference"
-  );
+  ); //
 
   const handleCheckout = async (e) => {
     e.preventDefault();
     if (!validateForm()) {
       alert("Por favor, corrija os erros no formulário antes de prosseguir.");
-      const firstErrorField = Object.keys(formErrors).find(
+      const firstErrorKey = Object.keys(formErrors).find(
         (key) => formErrors[key]
       );
-      if (firstErrorField) {
-        const fieldElement = document.getElementById(firstErrorField);
-        if (fieldElement) fieldElement.focus();
+      if (firstErrorKey) {
+        let firstErrorFieldId = firstErrorKey;
+        // Se for um erro de observação de item, o ID do elemento é prefixado
+        if (firstErrorKey.startsWith("observacaoItem_")) {
+          firstErrorFieldId = firstErrorKey.replace(
+            "observacaoItem_",
+            "observacaoItem-"
+          );
+        }
+        const fieldElement = document.getElementById(firstErrorFieldId);
+        if (fieldElement) {
+          fieldElement.focus();
+          fieldElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
       }
       return;
     }
@@ -117,19 +148,20 @@ function CartPage() {
     let orderId = null;
     try {
       const newOrderRef = await addDoc(collection(db, "pedidos"), {
+        //
         cliente: {
           nomeCompleto: cliente.nomeCompleto,
           email: cliente.email,
-          telefone: cliente.telefone.replace(/\D/g, ""),
-          cpf: cliente.cpf.replace(/\D/g, ""),
+          telefone: cliente.telefone.replace(/\D/g, ""), //
+          cpf: cliente.cpf.replace(/\D/g, ""), //
           endereco: {
-            cep: cliente.cep.replace(/\D/g, ""),
+            cep: cliente.cep.replace(/\D/g, ""), //
             logradouro: cliente.logradouro,
             numero: cliente.numero,
             complemento: cliente.complemento,
             bairro: cliente.bairro,
             cidade: cliente.cidade,
-            estado: cliente.estado.toUpperCase(),
+            estado: cliente.estado.toUpperCase(), //
           },
         },
         items: cartItems.map((item) => ({
@@ -142,12 +174,13 @@ function CartPage() {
               ? item.preco_promocional
               : item.preco
           ),
+          observacaoItem: item.observacaoItem || "", // ADICIONADO: salvar observação do item
         })),
         totalAmount: total,
         statusPedido: "pendente_pagamento",
         statusPagamentoMP: "pendente",
-        observacao: observation,
-        dataCriacao: serverTimestamp(),
+        // REMOVIDO: observacao: observation, (a observação agora é por item)
+        dataCriacao: serverTimestamp(), //
       });
       orderId = newOrderRef.id;
       console.log("Pedido criado no Firestore com ID:", orderId);
@@ -169,17 +202,18 @@ function CartPage() {
           : item.preco
       ),
     }));
-    const nomeArray = cliente.nomeCompleto.trim().split(" ");
-    const nome = nomeArray[0];
-    const sobrenome = nomeArray.slice(1).join(" ");
+    const nomeArray = cliente.nomeCompleto.trim().split(" "); //
+    const nome = nomeArray[0]; //
+    const sobrenome = nomeArray.slice(1).join(" "); //
     const payerInfoPayload = {
       name: nome,
       surname: sobrenome,
       email: cliente.email,
     };
-    const baseUrl = window.location.origin;
-    const webhookUrl = import.meta.env.VITE_MERCADO_PAGO_WEBHOOK_URL;
+    const baseUrl = window.location.origin; //
+    const webhookUrl = import.meta.env.VITE_MERCADO_PAGO_WEBHOOK_URL; //
     if (!webhookUrl || webhookUrl.includes("COLE_A_URL_DA_SUA_FUNCAO")) {
+      //
       console.error("ERRO CRÍTICO: URL de Webhook não configurada.");
       alert("Erro de configuração. Contate o suporte.");
       setLoadingPayment(false);
@@ -210,6 +244,7 @@ function CartPage() {
       });
       console.log("Resposta da Cloud Function:", result);
       if (result.data && result.data.init_point) {
+        clearCart(); // Limpa o carrinho após iniciar o pagamento
         window.location.href = result.data.init_point;
       } else {
         console.error("Erro: init_point não encontrado.", result.data);
@@ -220,6 +255,7 @@ function CartPage() {
       let displayError =
         "Ocorreu um erro ao tentar processar seu pedido. Por favor, tente novamente mais tarde.";
       if (error.details && error.details.message) {
+        //
         displayError = error.details.message;
       } else if (error.message) {
         displayError = error.message;
@@ -231,7 +267,6 @@ function CartPage() {
   };
 
   if (cartItems.length === 0) {
-    //
     return (
       <div className="container mx-auto px-4 py-20 text-center bg-white shadow-lg rounded-lg mt-10 max-w-2xl">
         <h2 className="text-3xl font-extrabold text-gray-900 mb-6">
@@ -240,7 +275,7 @@ function CartPage() {
         <p className="text-lg text-gray-600 mb-8">
           Que tal explorar nossos produtos incríveis?
         </p>
-        <RouterLink // MUDADO para RouterLink
+        <RouterLink
           to="/"
           className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-600 transition duration-300 ease-in-out"
         >
@@ -270,7 +305,6 @@ function CartPage() {
       </h2>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
-          {/* Lista de Itens do Carrinho (seu JSX existente) */}
           <ul className="divide-y divide-gray-200">
             {cartItems.map((item) => {
               const caracteristicas = item.destaque_curto
@@ -281,77 +315,107 @@ function CartPage() {
                 : [];
               return (
                 <li key={item.id} className="flex flex-col sm:flex-row py-6">
-                  {" "}
                   <div className="flex-shrink-0 w-32 h-32 sm:w-40 sm:h-40 relative rounded-md overflow-hidden">
-                    {" "}
                     <img
                       src={item.imagem}
                       alt={item.nome}
                       className="w-full h-full object-cover object-center"
-                    />{" "}
+                    />
                     {item.preco_promocional &&
                       item.preco_promocional < item.preco && (
                         <span className="absolute top-2 left-2 bg-emerald-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
                           Promoção!
                         </span>
-                      )}{" "}
-                  </div>{" "}
-                  <div className="ml-4 flex flex-1 flex-col justify-between">
-                    {" "}
+                      )}
+                  </div>
+                  <div className="ml-0 sm:ml-4 flex flex-1 flex-col justify-between mt-4 sm:mt-0">
                     <div>
-                      {" "}
-                      <div className="flex justify-between items-baseline mb-2">
-                        {" "}
-                        <h3 className="text-xl font-bold text-gray-900">
+                      <div className="flex flex-col sm:flex-row justify-between items-baseline mb-2">
+                        <h3 className="text-xl font-bold text-gray-900 mb-1 sm:mb-0">
                           {item.nome}
-                        </h3>{" "}
+                        </h3>
                         {item.preco_promocional &&
                         item.preco_promocional < item.preco ? (
                           <div className="text-lg font-semibold flex items-baseline">
-                            {" "}
                             <span className="text-gray-500 line-through mr-2">
                               R$ {Number(item.preco).toFixed(2)}
-                            </span>{" "}
+                            </span>
                             <span className="text-emerald-600">
                               R$ {Number(item.preco_promocional).toFixed(2)}
-                            </span>{" "}
+                            </span>
                           </div>
                         ) : (
                           <p className="text-lg font-semibold text-gray-800">
                             R$ {Number(item.preco).toFixed(2)}
                           </p>
-                        )}{" "}
-                      </div>{" "}
+                        )}
+                      </div>
                       <p className="mt-1 text-sm text-gray-600">
                         {item.descricao}
-                      </p>{" "}
+                      </p>
                       {caracteristicas.length > 0 && (
                         <div className="mt-2 text-sm text-gray-700">
-                          {" "}
-                          <p className="font-semibold mb-1">
-                            Características:
-                          </p>{" "}
+                          <p className="font-semibold mb-1">Características:</p>
                           <ul className="list-disc list-inside space-y-0.5 text-gray-600">
-                            {" "}
                             {caracteristicas.map((caracteristica, index) => (
                               <li key={index}>{caracteristica}</li>
-                            ))}{" "}
-                          </ul>{" "}
+                            ))}
+                          </ul>
                         </div>
-                      )}{" "}
-                    </div>{" "}
-                    <div className="flex flex-1 items-end justify-between text-sm mt-4 sm:mt-0">
-                      {" "}
+                      )}
+                      {/* CAMPO DE OBSERVAÇÃO POR ITEM */}
+                      <div className="mt-3">
+                        <label
+                          htmlFor={`observacaoItem-${item.id}`}
+                          className="block text-sm font-medium text-gray-700"
+                        >
+                          Observação{" "}
+                          {item.observacaoObrigatoria ? (
+                            <span className="text-red-500">*</span>
+                          ) : (
+                            "(Opcional)"
+                          )}
+                          :
+                        </label>
+                        <textarea
+                          id={`observacaoItem-${item.id}`}
+                          value={item.observacaoItem || ""}
+                          onChange={(e) =>
+                            updateItemObservation(item.id, e.target.value)
+                          }
+                          rows="2"
+                          className={`mt-1 block w-full p-2 border rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm ${
+                            item.observacaoObrigatoria &&
+                            !item.observacaoItem &&
+                            formErrors[`observacaoItem_${item.id}`]
+                              ? "border-red-500"
+                              : "border-gray-300"
+                          }`}
+                          placeholder={
+                            item.observacaoObrigatoria
+                              ? "Ex: Cor Azul, Sabor Morango (Obrigatório)"
+                              : "Observações sobre este item (Opcional)"
+                          }
+                        />
+                        {item.observacaoObrigatoria &&
+                          !item.observacaoItem &&
+                          formErrors[`observacaoItem_${item.id}`] && (
+                            <p className="text-red-500 text-xs mt-1">
+                              {formErrors[`observacaoItem_${item.id}`]}
+                            </p>
+                          )}
+                      </div>
+                      {/* FIM CAMPO DE OBSERVAÇÃO POR ITEM */}
+                    </div>
+                    <div className="flex flex-1 items-end justify-between text-sm mt-4">
                       <div className="flex items-center">
-                        {" "}
                         <label
                           htmlFor={`quantity-${item.id}`}
                           className="mr-2 text-gray-700"
                         >
                           Qtd:
-                        </label>{" "}
+                        </label>
                         <div className="flex items-center border border-gray-300 rounded-md shadow-sm">
-                          {" "}
                           <button
                             onClick={() =>
                               handleDecreaseQuantity(item.id, item.quantity)
@@ -359,7 +423,7 @@ function CartPage() {
                             className="p-2 text-gray-700 hover:bg-gray-100 rounded-l-md focus:outline-none focus:ring-1 focus:ring-emerald-500"
                           >
                             -
-                          </button>{" "}
+                          </button>
                           <input
                             id={`quantity-${item.id}`}
                             type="number"
@@ -373,7 +437,7 @@ function CartPage() {
                               MozAppearance: "textfield",
                               WebkitAppearance: "none",
                             }}
-                          />{" "}
+                          />
                           <button
                             onClick={() =>
                               handleIncreaseQuantity(item.id, item.quantity)
@@ -381,43 +445,25 @@ function CartPage() {
                             className="p-2 text-gray-700 hover:bg-gray-100 rounded-r-md focus:outline-none focus:ring-1 focus:ring-emerald-500"
                           >
                             +
-                          </button>{" "}
-                        </div>{" "}
-                      </div>{" "}
+                          </button>
+                        </div>
+                      </div>
                       <div className="flex">
-                        {" "}
                         <button
                           onClick={() => handleRemoveItem(item.id)}
                           className="text-red-600 hover:text-red-800 transition duration-200 ease-in-out font-medium"
                         >
                           Remover
-                        </button>{" "}
-                      </div>{" "}
-                    </div>{" "}
-                  </div>{" "}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </li>
               );
             })}
           </ul>
-          {/* Textarea de Observação (seu JSX existente) */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <label
-              htmlFor="observation"
-              className="block text-gray-800 text-base font-semibold mb-2"
-            >
-              Observação (opcional):
-            </label>
-            <textarea
-              id="observation"
-              value={observation}
-              onChange={(e) => setObservation(e.target.value)}
-              className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-gray-700 placeholder-gray-400"
-              rows="4"
-              placeholder="Adicione observações sobre o pedido, como preferências de entrega ou mensagens."
-            ></textarea>
-          </div>
+          {/* REMOVIDO: Textarea de Observação GERAL */}
 
-          {/* === INÍCIO DO FORMULÁRIO DE DADOS DO CLIENTE === */}
           {cartItems.length > 0 && (
             <form
               onSubmit={handleCheckout}
@@ -700,10 +746,7 @@ function CartPage() {
               </div>
             </form>
           )}
-          {/* === FIM DO FORMULÁRIO DE DADOS DO CLIENTE === */}
-        </div>{" "}
-        {/* Fim da div lg:col-span-2 */}
-        {/* Div do Resumo do Pedido */}
+        </div>
         <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow-md h-fit">
           <h3 className="text-2xl font-bold text-gray-900 mb-4">
             Resumo do Pedido
@@ -717,8 +760,8 @@ function CartPage() {
             <span>R$ {total.toFixed(2)}</span>
           </div>
           <button
-            type="submit" // Para submeter o formulário de dados do cliente
-            form="checkout-form" // Associa este botão ao formulário com id="checkout-form"
+            type="submit"
+            form="checkout-form"
             disabled={loadingPayment || cartItems.length === 0}
             className="w-full mt-6 bg-emerald-500 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-md text-lg shadow-lg transform transition duration-300 ease-in-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -727,7 +770,7 @@ function CartPage() {
               : "Finalizar Compra e Pagar"}
           </button>
           <div className="mt-4 text-center">
-            <RouterLink // Mudado para RouterLink
+            <RouterLink
               to="/"
               className="text-emerald-600 hover:text-emerald-800 hover:underline transition duration-200 ease-in-out font-medium"
             >

@@ -1,4 +1,4 @@
-// Admin.jsx
+// src/pages/Admin.jsx
 import { useState, useEffect } from "react";
 import {
   collection,
@@ -9,10 +9,10 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
-import { db, auth } from "../FirebaseConfig";
-import { signOut } from "firebase/auth";
+import { db, auth } from "../FirebaseConfig"; //
+import { signOut } from "firebase/auth"; //
 import { useNavigate } from "react-router-dom";
-import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
+import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline"; //
 
 const Admin = () => {
   const [produtos, setProdutos] = useState([]);
@@ -21,10 +21,11 @@ const Admin = () => {
     nome: "",
     descricao: "",
     preco: "",
-    imagem: null, // This will hold the File object for new uploads
-    currentImageUrl: "", // New state to hold the existing image URL
+    imagem: null,
+    currentImageUrl: "",
     destaque_curto: "",
     preco_promocional: "",
+    observacaoObrigatoria: false, // NOVO CAMPO
   });
   const [editandoId, setEditandoId] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -35,8 +36,8 @@ const Admin = () => {
   const [showOrders, setShowOrders] = useState(false);
 
   const navigate = useNavigate();
-  const produtosRef = collection(db, "produtos");
-  const pedidosRef = collection(db, "pedidos");
+  const produtosRef = collection(db, "produtos"); //
+  const pedidosRef = collection(db, "pedidos"); //
 
   const buscarProdutos = async () => {
     const snapshot = await getDocs(produtosRef);
@@ -69,9 +70,9 @@ const Admin = () => {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await signOut(auth); //
       console.log("Usuário deslogado com sucesso!");
-      navigate("/login");
+      navigate("/login"); //
     } catch (error) {
       console.error("Erro ao deslogar:", error);
     }
@@ -81,8 +82,8 @@ const Admin = () => {
     buscarProdutos();
     buscarPedidos();
 
-    const configRef = doc(db, "config", "cloudinary");
-    getDoc(configRef)
+    const configRef = doc(db, "config", "cloudinary"); //
+    getDoc(configRef) //
       .then((docSnap) => {
         if (docSnap.exists()) {
           setCloudinaryConfig(docSnap.data());
@@ -106,10 +107,9 @@ const Admin = () => {
     setUploading(true);
 
     try {
-      let imageUrl = form.currentImageUrl; // Start with the current image URL if editing
+      let imageUrl = form.currentImageUrl;
 
       if (form.imagem) {
-        // If a new image file is selected
         const formData = new FormData();
         formData.append("file", form.imagem);
         formData.append(
@@ -146,32 +146,32 @@ const Admin = () => {
         nome: form.nome,
         descricao: form.descricao,
         preco: Number(form.preco),
-        imagem: imageUrl, // Use the updated imageUrl
+        imagem: imageUrl,
         destaque_curto: form.destaque_curto,
         preco_promocional: form.preco_promocional
           ? Number(form.preco_promocional)
           : 0,
+        observacaoObrigatoria: form.observacaoObrigatoria || false, // ADICIONADO
       };
 
       if (editandoId) {
         const ref = doc(db, "produtos", editandoId);
-        await updateDoc(ref, produtoData);
+        await updateDoc(ref, produtoData); //
         setEditandoId(null);
       } else {
-        await addDoc(produtosRef, produtoData);
+        await addDoc(produtosRef, produtoData); //
       }
 
-      // Reset form fields after submission
       setForm({
         nome: "",
         descricao: "",
         preco: "",
         imagem: null,
-        currentImageUrl: "", // Clear current image URL as well
+        currentImageUrl: "",
         destaque_curto: "",
         preco_promocional: "",
+        observacaoObrigatoria: false, // Resetar NOVO CAMPO
       });
-      // Clear the file input visually
       if (document.querySelector('input[type="file"]')) {
         document.querySelector('input[type="file"]').value = "";
       }
@@ -187,7 +187,7 @@ const Admin = () => {
   const deletar = async (id) => {
     if (window.confirm("Tem certeza que deseja excluir este produto?")) {
       const ref = doc(db, "produtos", id);
-      await deleteDoc(ref);
+      await deleteDoc(ref); //
       buscarProdutos();
     }
   };
@@ -200,7 +200,7 @@ const Admin = () => {
     ) {
       try {
         const pedidoDocRef = doc(db, "pedidos", id);
-        await deleteDoc(pedidoDocRef);
+        await deleteDoc(pedidoDocRef); //
         console.log(`Pedido ${id} excluído com sucesso do Firestore.`);
         buscarPedidos();
       } catch (error) {
@@ -215,10 +215,11 @@ const Admin = () => {
       nome: produto.nome,
       descricao: produto.descricao,
       preco: produto.preco,
-      imagem: null, // Keep this as null for new file selection
-      currentImageUrl: produto.imagem || "", // Set the existing image URL
+      imagem: null,
+      currentImageUrl: produto.imagem || "",
       destaque_curto: produto.destaque_curto || "",
       preco_promocional: produto.preco_promocional || "",
+      observacaoObrigatoria: produto.observacaoObrigatoria || false, // ADICIONADO
       id: produto.id,
     });
     setEditandoId(produto.id);
@@ -258,7 +259,6 @@ const Admin = () => {
         </button>
       </div>
 
-      {/* Seção de Pedidos Recebidos */}
       <div className="mt-10">
         <div
           className="flex justify-between items-center mb-6 cursor-pointer"
@@ -268,9 +268,9 @@ const Admin = () => {
             Pedidos Recebidos
           </h2>
           {showOrders ? (
-            <ChevronUpIcon className="h-6 w-6 text-gray-700" />
+            <ChevronUpIcon className="h-6 w-6 text-gray-700" /> //
           ) : (
-            <ChevronDownIcon className="h-6 w-6 text-gray-700" />
+            <ChevronDownIcon className="h-6 w-6 text-gray-700" /> //
           )}
         </div>
 
@@ -391,11 +391,18 @@ const Admin = () => {
                           {item.nome || "Item sem nome"} (Qtd:{" "}
                           {item.quantity || 0}) - R${" "}
                           {parseFloat(item.precoUnitario || 0).toFixed(2)}
+                          {/* EXIBIR OBSERVAÇÃO DO ITEM NO ADMIN */}
+                          {item.observacaoItem && (
+                            <p className="text-xs text-blue-600 pl-4">
+                              ↳ Observação: {item.observacaoItem}
+                            </p>
+                          )}
                         </li>
                       ))}
                     </ul>
                   </div>
 
+                  {/* REMOVIDO - A observação agora é por item
                   {pedido.observacao && (
                     <div className="mt-4 p-4 bg-yellow-50 rounded-md border border-yellow-200">
                       <h4 className="font-semibold text-md text-yellow-800 mb-1">
@@ -406,6 +413,7 @@ const Admin = () => {
                       </p>
                     </div>
                   )}
+                  */}
 
                   <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end">
                     <button
@@ -422,7 +430,6 @@ const Admin = () => {
         )}
       </div>
 
-      {/* Seção de Adicionar/Editar Produto */}
       <form
         onSubmit={handleSubmit}
         className="space-y-4 mb-10 p-6 border rounded-lg shadow-lg bg-white"
@@ -471,6 +478,27 @@ const Admin = () => {
           onChange={(e) => setForm({ ...form, destaque_curto: e.target.value })}
           className="border p-2 w-full rounded h-20 resize-y"
         />
+        {/* NOVO CAMPO CHECKBOX */}
+        <div className="flex items-center my-4">
+          <input
+            type="checkbox"
+            id="observacaoObrigatoria"
+            name="observacaoObrigatoria"
+            checked={form.observacaoObrigatoria || false}
+            onChange={(e) =>
+              setForm({ ...form, observacaoObrigatoria: e.target.checked })
+            }
+            className="mr-2 h-5 w-5 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+          />
+          <label
+            htmlFor="observacaoObrigatoria"
+            className="text-sm font-medium text-gray-700"
+          >
+            Observação obrigatória para este produto? (Ex: para escolha de
+            cor/sabor)
+          </label>
+        </div>
+        {/* FIM NOVO CAMPO CHECKBOX */}
         <label className="block text-sm font-medium text-gray-700 mt-2">
           Imagem do Produto:
         </label>
@@ -480,7 +508,7 @@ const Admin = () => {
           onChange={handleFileChange}
           className="border p-2 w-full rounded file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
         />
-        {form.currentImageUrl && ( // Display current image if exists
+        {form.currentImageUrl && (
           <div className="mt-2">
             <p className="text-sm text-gray-600 mb-1">Imagem atual:</p>
             <img
@@ -511,9 +539,10 @@ const Admin = () => {
                 descricao: "",
                 preco: "",
                 imagem: null,
-                currentImageUrl: "", // Clear on cancel
+                currentImageUrl: "",
                 destaque_curto: "",
                 preco_promocional: "",
+                observacaoObrigatoria: false, // Resetar NOVO CAMPO
               });
               if (document.querySelector('input[type="file"]')) {
                 document.querySelector('input[type="file"]').value = "";
@@ -526,7 +555,6 @@ const Admin = () => {
         )}
       </form>
 
-      {/* Seção de Produtos Cadastrados */}
       <div className="mb-10">
         <h2 className="text-2xl font-semibold mb-4 text-gray-700">
           Produtos Cadastrados
@@ -557,6 +585,17 @@ const Admin = () => {
                       {produto.destaque_curto}
                     </p>
                   )}
+                  {/* Exibir se a observação é obrigatória */}
+                  <p
+                    className={`text-xs mb-1 ${
+                      produto.observacaoObrigatoria
+                        ? "text-red-500 font-semibold"
+                        : "text-gray-500"
+                    }`}
+                  >
+                    Observação:{" "}
+                    {produto.observacaoObrigatoria ? "Obrigatória" : "Opcional"}
+                  </p>
                   <p className="text-gray-700 text-sm mb-1 line-clamp-2">
                     {produto.descricao}
                   </p>

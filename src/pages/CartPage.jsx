@@ -71,13 +71,20 @@ function CartPage() {
     if (!cliente.telefone.trim()) errors.telefone = "Telefone é obrigatório.";
     else if (!/^\d{10,11}$/.test(cliente.telefone.replace(/\D/g, "")))
       errors.telefone = "Telefone inválido (com DDD, 10 ou 11 dígitos).";
+
+    // CPF Validation MODIFIED
     if (!cliente.cpf.trim()) errors.cpf = "CPF é obrigatório.";
-    else if (!/^\d{11}$/.test(cliente.cpf.replace(/\D/g, "")))
-      errors.cpf = "CPF inválido (11 dígitos).";
-    if (!cliente.cep.trim()) errors.cep = "CEP é obrigatório.";
-    else if (!/^\d{5}-?\d{3}$/.test(cliente.cep.replace(/\D/g, "")))
-      //
-      errors.cep = "CEP inválido (use XXXXX ou XXXXX-XXX).";
+    else if (cliente.cpf.trim().length !== 11)
+      errors.cpf =
+        "CPF deve ter 11 caracteres (letras e números são permitidos).";
+
+    // CEP Validation MODIFIED
+    const cepTrimmed = cliente.cep.trim();
+    if (!cepTrimmed) errors.cep = "CEP é obrigatório.";
+    else if (cepTrimmed.length < 8 || cepTrimmed.length > 9)
+      errors.cep =
+        "CEP deve ter entre 8 e 9 caracteres (letras e números são permitidos, formato XXXXXXXX ou XXXXX-XXX).";
+
     if (!cliente.logradouro.trim())
       errors.logradouro = "Logradouro é obrigatório.";
     if (!cliente.numero.trim()) errors.numero = "Número é obrigatório.";
@@ -149,13 +156,14 @@ function CartPage() {
     try {
       const newOrderRef = await addDoc(collection(db, "pedidos"), {
         //
+        //
         cliente: {
           nomeCompleto: cliente.nomeCompleto,
           email: cliente.email,
-          telefone: cliente.telefone.replace(/\D/g, ""), //
-          cpf: cliente.cpf.replace(/\D/g, ""), //
+          telefone: cliente.telefone.replace(/\D/g, ""), // Mantém apenas números para telefone
+          cpf: cliente.cpf.trim(), // MODIFIED: Salva o CPF como foi digitado
           endereco: {
-            cep: cliente.cep.replace(/\D/g, ""), //
+            cep: cliente.cep.trim(), // MODIFIED: Salva o CEP como foi digitado
             logradouro: cliente.logradouro,
             numero: cliente.numero,
             complemento: cliente.complemento,
@@ -288,7 +296,7 @@ function CartPage() {
             {" "}
             <path
               fillRule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414L7.5 8.586 5.707 6.879a1 1 0 00-1.414 1.414l2.5 2.5a1 1 001.414 0l4-4z"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414L7.5 8.586 5.707 6.879a1 1 0 00-1.414 1.414l2.5 2.5a1 1 0 001.414 0l4-4z"
               clipRule="evenodd"
             />{" "}
           </svg>
@@ -555,7 +563,7 @@ function CartPage() {
                   htmlFor="cpf"
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
-                  CPF* (apenas números)
+                  CPF*
                 </label>
                 <input
                   type="text"
@@ -563,7 +571,7 @@ function CartPage() {
                   id="cpf"
                   value={cliente.cpf}
                   onChange={handleClienteChange}
-                  maxLength="11"
+                  maxLength="14" // Ajustado para permitir formatação como XXX.XXX.XXX-XX
                   required
                   className={`w-full p-2 border rounded-md shadow-sm ${
                     formErrors.cpf ? "border-red-500" : "border-gray-300"
@@ -581,7 +589,7 @@ function CartPage() {
                   htmlFor="cep"
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
-                  CEP* (apenas números)
+                  CEP*
                 </label>
                 <input
                   type="text"
@@ -589,7 +597,7 @@ function CartPage() {
                   id="cep"
                   value={cliente.cep}
                   onChange={handleClienteChange}
-                  maxLength="8"
+                  maxLength="9" // Ajustado para permitir formatação como XXXXX-XXX
                   required
                   className={`w-full p-2 border rounded-md shadow-sm ${
                     formErrors.cep ? "border-red-500" : "border-gray-300"

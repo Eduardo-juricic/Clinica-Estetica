@@ -401,7 +401,7 @@ function CartPage() {
                           }`}
                           placeholder={
                             item.observacaoObrigatoria
-                              ? "Ex: Cor Azul, Sabor Morango (Obrigatório)"
+                              ? "Veja as opções do produto nas caracteristicas e escreva aqui o sabor ou cor do produto (Obrigatório)"
                               : "Observações sobre este item (Opcional)"
                           }
                         />

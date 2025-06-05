@@ -1,5 +1,5 @@
-// src/pages/ServicesPage.jsx (ou ServicesPageOption3.jsx) - COM ROLAGEM PARA O TOPO
-import React, { useEffect } from "react"; // Importe useEffect
+// src/pages/ServicesPage.jsx
+import React, { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
@@ -7,77 +7,28 @@ import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 const services = [
   {
     id: "1",
-    name: "Limpeza de Pele Profunda",
-    professional: "Dra. Ana Paula",
+    name: "Dermatologia", // Nome do serviço/especialidade
+    professional:
+      "Dr. André Luiz Goulart Galvão, Médico Dermatologista (CRM: 52511265)",
     description:
-      "Remove impurezas, células mortas e cravos, promovendo a renovação celular e uma pele mais luminosa e saudável.",
-    details: [
-      "Higienização completa",
-      "Esfoliação e vapor",
-      "Extração manual de cravos e espinhas",
-      "Máscara calmante e hidratante",
-      "Proteção solar",
-    ],
+      "Atendimento especializado em dermatologia, incluindo consulta clínica e procedimentos estéticos.",
+    details: ["Consulta clínica dermatológica", "Procedimentos estéticos"],
   },
   {
     id: "2",
-    name: "Massagem Relaxante",
-    professional: "Sr. Carlos Eduardo",
+    name: "Angiologia - Escleroterapia", // Nome do serviço/especialidade
+    professional:
+      "Dr. Frederico Antônio Piontkovsky, Médico Angiologista (CRM: 52775436)",
     description:
-      "Técnica que utiliza movimentos suaves e firmes para aliviar tensões musculares, reduzir o estresse e promover o relaxamento profundo.",
-    details: [
-      "Aplicação de óleos essenciais",
-      "Foco em pontos de tensão",
-      "Ambiente aromatizado e climatizado",
-      "Duração: 60 minutos",
-    ],
-  },
-  {
-    id: "3",
-    name: "Drenagem Linfática",
-    professional: "Dra. Juliana Mendes",
-    description:
-      "Massagem com toques leves e rítmicos que estimula o sistema linfático, auxiliando na eliminação de toxinas e redução de inchaços.",
-    details: [
-      "Redução de retenção de líquidos",
-      "Combate à celulite",
-      "Melhora da circulação sanguínea",
-      "Ideal pós-operatório",
-    ],
-  },
-  {
-    id: "4",
-    name: "Peeling Químico",
-    professional: "Dra. Roberta Dias",
-    description:
-      "Tratamento que utiliza ácidos para remover camadas danificadas da pele, melhorando a textura, manchas e cicatrizes de acne.",
-    details: [
-      "Clareamento de manchas",
-      "Redução de rugas finas",
-      "Estímulo à produção de colágeno",
-      "Recomendado em sessões",
-    ],
-  },
-  {
-    id: "5",
-    name: "Microagulhamento",
-    professional: "Sr. Felipe Costa",
-    description:
-      "Técnica que cria microperfurações na pele com agulhas finas, estimulando a produção de colágeno e a absorção de ativos.",
-    details: [
-      "Tratamento de cicatrizes de acne",
-      "Redução de poros dilatados",
-      "Rejuvenescimento da pele",
-      "Melhora da elasticidade",
-    ],
+      "Tratamento de escleroterapia focado na aplicação de vasos e microvasos.",
+    details: ["Escleroterapia (aplicação de vasos e micro vasos)"],
   },
 ];
 
 function ServicesPageOption3() {
-  // === NOVO HOOK useEffect PARA ROLAR PARA O TOPO ===
   useEffect(() => {
-    window.scrollTo(0, 0); // Rola a janela para a posição (x: 0, y: 0)
-  }, []); // O array vazio [] garante que ele só execute uma vez, na montagem do componente.
+    window.scrollTo(0, 0);
+  }, []);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -133,11 +84,11 @@ function ServicesPageOption3() {
       </div>
 
       <h1 className="text-4xl md:text-5xl font-extrabold text-emerald-800 mb-10 text-center">
-        Nossos Serviços
+        Nossos Serviços Médicos
       </h1>
 
       <motion.div
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-10" // Ajustado para lg:grid-cols-2 para melhor visualização com 2 cards
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -156,14 +107,14 @@ function ServicesPageOption3() {
               {service.name}
             </h2>
             <p className="text-gray-500 text-md mb-4 text-center italic">
-              Profissional: {service.professional}
+              {service.professional}
             </p>
             <p className="text-gray-700 mb-4 text-center flex-grow">
               {service.description}
             </p>
             <div className="mt-auto">
               <h3 className="text-lg font-semibold text-emerald-700 mb-2">
-                Benefícios:
+                Serviços Oferecidos:
               </h3>
               <ul className="list-disc list-inside text-gray-600 mb-4 space-y-1 text-sm">
                 {service.details.map((detail, detailIndex) => (

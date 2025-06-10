@@ -103,7 +103,7 @@ function CartPage() {
       }));
 
       const response = await calculateShippingCallable({
-        from_cep: "28979285", // COLOQUE SEU CEP DE ORIGEM AQUI
+        from_cep: "28979285", // SEU CEP DE ORIGEM
         to_cep: cep,
         products: productsPayload,
       });
@@ -187,7 +187,21 @@ function CartPage() {
 
     try {
       const newOrderRef = await addDoc(collection(db, "pedidos"), {
-        cliente,
+        cliente: {
+          nomeCompleto: cliente.nomeCompleto,
+          email: cliente.email,
+          telefone: cliente.telefone,
+          cpf: cliente.cpf,
+          endereco: {
+            cep: cliente.cep,
+            logradouro: cliente.logradouro,
+            numero: cliente.numero,
+            complemento: cliente.complemento,
+            bairro: cliente.bairro,
+            cidade: cliente.cidade,
+            estado: cliente.estado.toUpperCase(),
+          },
+        },
         items: cartItems.map((item) => ({
           id: item.id,
           nome: item.nome,

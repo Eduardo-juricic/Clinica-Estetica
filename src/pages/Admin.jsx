@@ -81,9 +81,7 @@ const Admin = () => {
     buscarPedidos();
     const configRef = doc(db, "config", "cloudinary");
     getDoc(configRef).then((docSnap) => {
-      if (docSnap.exists()) {
-        setCloudinaryConfig(docSnap.data());
-      }
+      if (docSnap.exists()) setCloudinaryConfig(docSnap.data());
     });
   }, []);
 
@@ -156,9 +154,8 @@ const Admin = () => {
         largura: "",
         comprimento: "",
       });
-      if (document.querySelector('input[type="file"]')) {
+      if (document.querySelector('input[type="file"]'))
         document.querySelector('input[type="file"]').value = "";
-      }
       buscarProdutos();
     } catch (error) {
       console.error("Erro ao enviar produto:", error);
@@ -169,23 +166,19 @@ const Admin = () => {
   };
 
   const deletar = async (id) => {
-    if (window.confirm("Tem certeza que deseja excluir este produto?")) {
+    if (window.confirm("Tem certeza?")) {
       await deleteDoc(doc(db, "produtos", id));
       buscarProdutos();
     }
   };
 
   const deletarPedido = async (id) => {
-    if (
-      window.confirm(
-        `Tem certeza que deseja excluir o pedido ID: ${id}? Esta ação não pode ser desfeita.`
-      )
-    ) {
+    if (window.confirm(`Tem certeza? Pedido ID: ${id}`)) {
       try {
         await deleteDoc(doc(db, "pedidos", id));
         buscarPedidos();
       } catch (error) {
-        alert(`Erro ao excluir pedido: ${error.message}`);
+        alert(`Erro ao excluir: ${error.message}`);
       }
     }
   };

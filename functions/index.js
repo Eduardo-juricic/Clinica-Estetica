@@ -5,6 +5,7 @@ const { setGlobalOptions } = require("firebase-functions/v2");
 const { MercadoPagoConfig, Preference, Payment } = require("mercadopago");
 const admin = require("firebase-admin");
 const { logger } = require("firebase-functions");
+const axios = require("axios");
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
@@ -16,97 +17,139 @@ setGlobalOptions({
   timeoutSeconds: 60,
 });
 
-// --- INÍCIO DA LÓGICA DE CONFIGURAÇÃO DO ACCESS TOKEN ATUALIZADA ---
 const PROD_SECRET_NAME = "MERCADOPAGO_ACCESS_TOKEN_PROD";
 const TEST_SECRET_NAME = "MERCADOPAGO_ACCESS_TOKEN_TEST";
+const MELHOR_ENVIO_SECRET_NAME = "MELHORENVIO_TOKEN";
 
 const PROD_ACCESS_TOKEN_FROM_SECRET = process.env[PROD_SECRET_NAME];
 const TEST_ACCESS_TOKEN_FROM_SECRET = process.env[TEST_SECRET_NAME];
+const MELHOR_ENVIO_TOKEN = process.env[MELHOR_ENVIO_SECRET_NAME];
 
-// Seu Access Token de TESTE fornecido, usado como fallback para o emulador local se o secret não estiver configurado
 const YOUR_PROVIDED_TEST_ACCESS_TOKEN =
   "TEST-2041651583950402-051909-c6b895278dbff8c34731dd86d4c95c67-98506488";
 
 let CHAVE_ACESSO_MP_A_SER_USADA;
 let idempotencyKeyBase = Date.now().toString();
 
-// Verifica se está rodando no ambiente de produção do Google Cloud (2ª Geração usa K_SERVICE)
-const isProductionEnvironment = !!process.env.K_SERVICE; // `!!` converte para booleano
-// Verifica se está rodando no Emulador do Firebase
+const isProductionEnvironment = !!process.env.K_SERVICE;
 const isEmulatorEnvironment = process.env.FUNCTIONS_EMULATOR === "true";
-
-logger.info(
-  `DETECÇÃO DE AMBIENTE: isProductionEnvironment=${isProductionEnvironment}, isEmulatorEnvironment=${isEmulatorEnvironment}`
-);
-logger.info(
-  `Leitura do Secret PROD (${PROD_SECRET_NAME}): ${
-    PROD_ACCESS_TOKEN_FROM_SECRET
-      ? "Definido (" + PROD_ACCESS_TOKEN_FROM_SECRET.substring(0, 8) + "...)"
-      : "NÃO DEFINIDO OU NÃO ACESSÍVEL NESTE MOMENTO (normal durante deploy inicial do secret)"
-  }`
-);
-logger.info(
-  `Leitura do Secret TEST (${TEST_SECRET_NAME}): ${
-    TEST_ACCESS_TOKEN_FROM_SECRET
-      ? "Definido (" + TEST_ACCESS_TOKEN_FROM_SECRET.substring(0, 8) + "...)"
-      : "NÃO DEFINIDO OU NÃO ACESSÍVEL NESTE MOMENTO"
-  }`
-);
 
 if (isProductionEnvironment) {
   if (PROD_ACCESS_TOKEN_FROM_SECRET) {
     CHAVE_ACESSO_MP_A_SER_USADA = PROD_ACCESS_TOKEN_FROM_SECRET;
-    logger.info(
-      "MODO PRODUÇÃO: Usando Access Token de PRODUÇÃO do Mercado Pago (via Secret Manager)."
-    );
   } else {
-    const errorMsg = `ERRO CRÍTICO: Rodando em AMBIENTE DE PRODUÇÃO (K_SERVICE=${process.env.K_SERVICE}) mas o ACCESS TOKEN DE PRODUÇÃO ('${PROD_SECRET_NAME}') não foi lido do Secret Manager. VERIFIQUE SE O SECRET EXISTE, TEM O NOME CORRETO E SE A FUNÇÃO TEM PERMISSÃO PARA ACESSÁ-LO.`;
+    const errorMsg = `ERRO CRÍTICO: Rodando em AMBIENTE DE PRODUÇÃO mas o ACCESS TOKEN DE PRODUÇÃO ('${PROD_SECRET_NAME}') não foi lido.`;
     logger.error(errorMsg);
     throw new Error(errorMsg);
   }
-} else if (isEmulatorEnvironment) {
-  if (TEST_ACCESS_TOKEN_FROM_SECRET) {
-    CHAVE_ACESSO_MP_A_SER_USADA = TEST_ACCESS_TOKEN_FROM_SECRET;
-    logger.info(
-      "MODO EMULADOR LOCAL: Usando Access Token de TESTE do Mercado Pago (via Secret Manager)."
-    );
-  } else {
-    CHAVE_ACESSO_MP_A_SER_USADA = YOUR_PROVIDED_TEST_ACCESS_TOKEN; // Usa o seu token de teste fornecido
-    logger.warn(
-      `AVISO (EMULADOR LOCAL): Secret ('${TEST_SECRET_NAME}') não lido ou não configurado para o emulador. Usando Access Token de TESTE hardcoded. Para melhor prática, configure o secret de teste se desejar.`
-    );
-  }
 } else {
-  // Fallback para outros ambientes locais não claramente identificados (ex: 'node index.js' diretamente)
-  logger.warn(
-    "AVISO: Ambiente não identificado como Produção (sem K_SERVICE) ou Emulador Firebase (sem FUNCTIONS_EMULATOR=true). Usando Access Token de TESTE hardcoded como fallback. Verifique a configuração do ambiente se isso não for o esperado."
-  );
-  CHAVE_ACESSO_MP_A_SER_USADA = YOUR_PROVIDED_TEST_ACCESS_TOKEN; // Usa o seu token de teste fornecido
+  CHAVE_ACESSO_MP_A_SER_USADA =
+    TEST_ACCESS_TOKEN_FROM_SECRET || YOUR_PROVIDED_TEST_ACCESS_TOKEN;
 }
 
 if (!CHAVE_ACESSO_MP_A_SER_USADA) {
   const errorMsg =
-    "ERRO CRÍTICO: NENHUM ACCESS TOKEN DO MERCADO PAGO FOI CONFIGURADO ADEQUADAMENTE PARA O AMBIENTE ATUAL APÓS A LÓGICA DE SELEÇÃO.";
+    "ERRO CRÍTICO: NENHUM ACCESS TOKEN DO MERCADO PAGO FOI CONFIGURADO.";
   logger.error(errorMsg);
   throw new Error(errorMsg);
-} else {
-  logger.info(
-    "Access Token do Mercado Pago FINALMENTE selecionado para uso (início):",
-    CHAVE_ACESSO_MP_A_SER_USADA.substring(0, 8) + "..."
-  );
 }
 
 const client = new MercadoPagoConfig({
   accessToken: CHAVE_ACESSO_MP_A_SER_USADA,
   options: { timeout: 7000 },
 });
-logger.info("Cliente MercadoPagoConfig inicializado com o token selecionado.");
-// --- FIM DA LÓGICA DE CONFIGURAÇÃO DO ACCESS TOKEN ATUALIZADA ---
 
-// --- DEFINIÇÃO DAS FUNÇÕES ---
 const commonFunctionOptions = {
-  secrets: [PROD_SECRET_NAME, TEST_SECRET_NAME], // Garante que as funções têm acesso aos secrets
+  secrets: [PROD_SECRET_NAME, TEST_SECRET_NAME, MELHOR_ENVIO_SECRET_NAME],
 };
+
+exports.calculateShipping = functions.onCall(
+  commonFunctionOptions,
+  async (request) => {
+    logger.info("Função calculateShipping chamada com dados:", request.data);
+
+    if (!MELHOR_ENVIO_TOKEN) {
+      logger.error("Token do Melhor Envio não está configurado nos secrets.");
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "A API de frete não está configurada. Por favor, contate o suporte."
+      );
+    }
+
+    const { from_cep, to_cep, products } = request.data;
+    if (!from_cep || !to_cep || !products || products.length === 0) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "CEP de origem, destino e produtos são obrigatórios."
+      );
+    }
+
+    const MELHOR_ENVIO_API_URL =
+      "https://melhorenvio.com.br/api/v2/me/shipment/calculate";
+
+    const payload = {
+      from: { postal_code: from_cep },
+      to: { postal_code: to_cep },
+      products: products.map((p) => {
+        if (
+          p.largura == null ||
+          p.altura == null ||
+          p.comprimento == null ||
+          p.peso == null
+        ) {
+          logger.error("Produto no carrinho sem dimensões:", p);
+          throw new functions.https.HttpsError(
+            "invalid-argument",
+            `O produto '${p.id}' está sem as dimensões necessárias para o cálculo do frete.`
+          );
+        }
+        return {
+          id: p.id,
+          width: p.largura,
+          height: p.altura,
+          length: p.comprimento,
+          weight: p.peso,
+          insurance_value: p.unit_price,
+          quantity: p.quantity,
+        };
+      }),
+      options: { receipt: false, own_hand: false },
+      // LINHA CORRIGIDA
+      services: "1,2,17", // 1=PAC, 2=SEDEX, 17=Mini Envios (só Correios)
+    };
+
+    try {
+      const response = await axios.post(MELHOR_ENVIO_API_URL, payload, {
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${MELHOR_ENVIO_TOKEN}`,
+          "User-Agent": "ClinicaEstetica (contato@email.com)",
+        },
+      });
+
+      const validOptions = response.data
+        .filter((option) => !option.error)
+        .map((option) => ({
+          id: option.id,
+          name: option.name,
+          price: option.price,
+          delivery_time: option.delivery_time,
+        }));
+
+      logger.info("Opções de frete retornadas:", validOptions);
+      return validOptions;
+    } catch (error) {
+      const errorMsg = error.response ? error.response.data : error.message;
+      logger.error("Erro ao chamar API do Melhor Envio:", errorMsg);
+      throw new functions.https.HttpsError(
+        "internal",
+        "Não foi possível calcular o frete. Verifique o CEP e tente novamente.",
+        errorMsg
+      );
+    }
+  }
+);
 
 exports.createPaymentPreference = functions.onCall(
   commonFunctionOptions,
@@ -124,14 +167,14 @@ exports.createPaymentPreference = functions.onCall(
       logger.error(
         "Erro em createPaymentPreference: Lista de itens vazia ou inválida."
       );
-      throw new functions.HttpsError(
+      throw new functions.https.HttpsError(
         "invalid-argument",
         "A lista de 'items' é obrigatória e não pode estar vazia."
       );
     }
     if (!payerInfo || !payerInfo.email) {
       logger.error("Erro em createPaymentPreference: payerInfo.email ausente.");
-      throw new functions.HttpsError(
+      throw new functions.https.HttpsError(
         "invalid-argument",
         "As 'payerInfo' com 'email' são obrigatórias."
       );
@@ -159,10 +202,6 @@ exports.createPaymentPreference = functions.onCall(
       external_reference: String(externalReference),
       notification_url: String(notificationUrl),
     };
-    logger.info(
-      "Construindo preferência (v2) com:",
-      JSON.stringify(preferenceRequest, null, 2)
-    );
     try {
       const preference = new Preference(client);
       const requestOptions = {
@@ -172,36 +211,18 @@ exports.createPaymentPreference = functions.onCall(
         body: preferenceRequest,
         requestOptions,
       });
-      logger.info(
-        "Preferência (v2) criada! ID:",
-        response.id,
-        "Init Point:",
-        response.init_point
-          ? response.init_point.substring(0, 30) + "..."
-          : "N/A"
-      );
       return { id: response.id, init_point: response.init_point };
     } catch (error) {
-      logger.error(
-        "Erro ao criar preferência MP (v2):",
-        error.message,
-        error.cause ? error.cause : error.stack
-      );
+      logger.error("Erro ao criar preferência MP (v2):", error.message);
       let errorMessage = "Falha ao criar preferência MP.";
       if (error.cause && Array.isArray(error.cause)) {
-        // Mercado Pago SDK v3 costuma ter 'cause' como array
         errorMessage = error.cause
-          .map(
-            (c) =>
-              `Code ${c.code || "N/A"}: ${
-                c.description || c.message || JSON.stringify(c)
-              }`
-          )
+          .map((c) => c.description || c.message)
           .join("; ");
       } else if (error.message) {
         errorMessage = error.message;
       }
-      throw new functions.HttpsError(
+      throw new functions.https.HttpsError(
         "internal",
         errorMessage,
         error.cause || error.message
@@ -215,7 +236,6 @@ exports.processPaymentNotification = functions.onRequest(
   async (req, res) => {
     logger.info("Função processPaymentNotification (v2) chamada.");
     if (req.method !== "POST") {
-      logger.warn("processPaymentNotification: Não é POST.");
       return res.status(405).send("Method Not Allowed.");
     }
     const type = req.body.type;
@@ -224,112 +244,50 @@ exports.processPaymentNotification = functions.onRequest(
     if (type === "payment" && paymentIdFromBody) {
       paymentIdToProcess = paymentIdFromBody;
     } else if (req.query.topic === "payment" && req.query.id) {
-      // Formato de notificação antigo ou alternativo
       paymentIdToProcess = req.query.id;
-    } else if (req.query.type === "payment" && req.query.data?.id) {
-      // Outro formato possível
-      paymentIdToProcess = req.query.data.id;
     }
-
-    logger.info(
-      "Notificação Recebida - Tipo:",
-      type,
-      "ID do Body:",
-      paymentIdFromBody,
-      "Query:",
-      req.query,
-      "ID a Processar:",
-      paymentIdToProcess
-    );
 
     if (paymentIdToProcess) {
       try {
-        const payment = new Payment(client); // USA O MESMO 'client' CONFIGURADO ACIMA
+        const payment = new Payment(client);
         const paymentDetails = await payment.get({
           id: String(paymentIdToProcess),
         });
 
-        logger.info(
-          "Detalhes do pagamento obtidos:",
-          paymentDetails
-            ? `Status: ${paymentDetails.status}, Ref Ext: ${paymentDetails.external_reference}`
-            : "Não foi possível obter detalhes."
-        );
-
         if (paymentDetails) {
-          const paymentData = paymentDetails;
-          const status = paymentData.status;
-          const externalReference = paymentData.external_reference;
-          if (externalReference) {
+          const { status, external_reference } = paymentDetails;
+          if (external_reference) {
             const pedidoRef = admin
               .firestore()
               .collection("pedidos")
-              .doc(externalReference);
+              .doc(external_reference);
             await pedidoRef.update({
               statusPagamentoMP: status,
               paymentIdMP: String(paymentIdToProcess),
-              dadosCompletosPagamentoMP: paymentData, // Salva todos os dados do pagamento
+              dadosCompletosPagamentoMP: paymentDetails,
               ultimaAtualizacaoWebhook:
                 admin.firestore.FieldValue.serverTimestamp(),
             });
             logger.info(
-              `Pedido ${externalReference} (v2) atualizado para status: ${status}.`
-            );
-            if (status === "approved") {
-              logger.info(
-                `Pagamento APROVADO (v2) para o pedido ${externalReference}.`
-              );
-              // AQUI VOCÊ PODERIA ADICIONAR LÓGICAS ADICIONAIS PARA PAGAMENTO APROVADO
-              // Ex: Enviar email de confirmação, liberar acesso a conteúdo digital, etc.
-            }
-          } else {
-            logger.warn(
-              `Pagamento ${paymentIdToProcess} (v2) sem external_reference nos detalhes obtidos. Body original:`,
-              req.body
+              `Pedido ${external_reference} (v2) atualizado para status: ${status}.`
             );
           }
-        } else {
-          logger.error(
-            `Não foi possível obter detalhes (v2) para o pagamento ID: ${paymentIdToProcess}.`
-          );
         }
         return res.status(200).send("OK. Notificação (v2) processada.");
       } catch (error) {
         logger.error(
           `Erro ao processar notificação (v2) para ${paymentIdToProcess}. Erro:`,
-          error.message,
-          error.cause ? error.cause : error.stack
+          error.message
         );
-        let errorMessage = "Erro interno ao processar notificação.";
-        if (error.cause && Array.isArray(error.cause)) {
-          errorMessage = error.cause
-            .map(
-              (c) =>
-                `Code ${c.code || "N/A"}: ${
-                  c.description || c.message || JSON.stringify(c)
-                }`
-            )
-            .join("; ");
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-        return res.status(500).send(errorMessage);
+        return res.status(500).send("Erro interno ao processar notificação.");
       }
-    } else {
-      logger.info(
-        "Notificação (v2) recebida, mas não foi possível determinar o ID do pagamento para processamento. Query:",
-        req.query,
-        "Body:",
-        req.body
-      );
-      return res
-        .status(200) // Mercado Pago espera 200 para não reenviar, mesmo que não processemos
-        .send(
-          "Notificação (v2) recebida, mas ID do pagamento não identificado para processamento."
-        );
     }
+    return res
+      .status(200)
+      .send("Notificação (v2) recebida, mas ID do pagamento não identificado.");
   }
 );
+
 logger.info(
   "Arquivo functions/index.js (v2 com secrets) carregado e funções exportadas."
 );

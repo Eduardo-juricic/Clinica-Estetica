@@ -9,10 +9,10 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
-import { db, auth } from "../FirebaseConfig"; //
-import { signOut } from "firebase/auth"; //
+import { db, auth } from "../FirebaseConfig";
+import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline"; //
+import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 
 const Admin = () => {
   const [produtos, setProdutos] = useState([]);
@@ -25,7 +25,11 @@ const Admin = () => {
     currentImageUrl: "",
     destaque_curto: "",
     preco_promocional: "",
-    observacaoObrigatoria: false, // NOVO CAMPO
+    observacaoObrigatoria: false,
+    peso: "",
+    altura: "",
+    largura: "",
+    comprimento: "",
   });
   const [editandoId, setEditandoId] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -36,8 +40,8 @@ const Admin = () => {
   const [showOrders, setShowOrders] = useState(false);
 
   const navigate = useNavigate();
-  const produtosRef = collection(db, "produtos"); //
-  const pedidosRef = collection(db, "pedidos"); //
+  const produtosRef = collection(db, "produtos");
+  const pedidosRef = collection(db, "pedidos");
 
   const buscarProdutos = async () => {
     const snapshot = await getDocs(produtosRef);
@@ -55,9 +59,7 @@ const Admin = () => {
       listaPedidos.sort((a, b) => {
         const dateA = a.dataCriacao?.toDate();
         const dateB = b.dataCriacao?.toDate();
-        if (dateA && dateB) {
-          return dateB - dateA;
-        }
+        if (dateA && dateB) return dateB - dateA;
         if (dateA) return -1;
         if (dateB) return 1;
         return 0;
@@ -70,9 +72,8 @@ const Admin = () => {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth); //
-      console.log("Usuário deslogado com sucesso!");
-      navigate("/login"); //
+      await signOut(auth);
+      navigate("/login");
     } catch (error) {
       console.error("Erro ao deslogar:", error);
     }
@@ -81,16 +82,13 @@ const Admin = () => {
   useEffect(() => {
     buscarProdutos();
     buscarPedidos();
-
-    const configRef = doc(db, "config", "cloudinary"); //
-    getDoc(configRef) //
+    const configRef = doc(db, "config", "cloudinary");
+    getDoc(configRef)
       .then((docSnap) => {
         if (docSnap.exists()) {
           setCloudinaryConfig(docSnap.data());
         } else {
-          console.log(
-            "No such document! (config/cloudinary) - Por favor, crie este documento no Firestore."
-          );
+          console.log("Config do Cloudinary não encontrada.");
         }
       })
       .catch((error) => {
@@ -108,7 +106,6 @@ const Admin = () => {
 
     try {
       let imageUrl = form.currentImageUrl;
-
       if (form.imagem) {
         const formData = new FormData();
         formData.append("file", form.imagem);
@@ -117,27 +114,20 @@ const Admin = () => {
           cloudinaryConfig.upload_preset || "produtos_upload"
         );
         formData.append("folder", "produtos");
-
         const response = await fetch(
           `https://api.cloudinary.com/v1_1/${
             cloudinaryConfig.cloud_name || "dtbvkmxy9"
           }/image/upload`,
-          {
-            method: "POST",
-            body: formData,
-          }
+          { method: "POST", body: formData }
         );
-
         if (!response.ok) {
           const errorData = await response.json();
-          console.error("Erro do Cloudinary:", errorData);
           throw new Error(
-            `Erro ao enviar imagem para o Cloudinary: ${
+            `Erro do Cloudinary: ${
               errorData.error?.message || response.statusText
             }`
           );
         }
-
         const data = await response.json();
         imageUrl = data.secure_url;
       }
@@ -151,15 +141,19 @@ const Admin = () => {
         preco_promocional: form.preco_promocional
           ? Number(form.preco_promocional)
           : 0,
-        observacaoObrigatoria: form.observacaoObrigatoria || false, // ADICIONADO
+        observacaoObrigatoria: form.observacaoObrigatoria || false,
+        peso: Number(form.peso),
+        altura: Number(form.altura),
+        largura: Number(form.largura),
+        comprimento: Number(form.comprimento),
       };
 
       if (editandoId) {
         const ref = doc(db, "produtos", editandoId);
-        await updateDoc(ref, produtoData); //
+        await updateDoc(ref, produtoData);
         setEditandoId(null);
       } else {
-        await addDoc(produtosRef, produtoData); //
+        await addDoc(produtosRef, produtoData);
       }
 
       setForm({
@@ -170,7 +164,11 @@ const Admin = () => {
         currentImageUrl: "",
         destaque_curto: "",
         preco_promocional: "",
-        observacaoObrigatoria: false, // Resetar NOVO CAMPO
+        observacaoObrigatoria: false,
+        peso: "",
+        altura: "",
+        largura: "",
+        comprimento: "",
       });
       if (document.querySelector('input[type="file"]')) {
         document.querySelector('input[type="file"]').value = "";
@@ -187,7 +185,7 @@ const Admin = () => {
   const deletar = async (id) => {
     if (window.confirm("Tem certeza que deseja excluir este produto?")) {
       const ref = doc(db, "produtos", id);
-      await deleteDoc(ref); //
+      await deleteDoc(ref);
       buscarProdutos();
     }
   };
@@ -200,12 +198,10 @@ const Admin = () => {
     ) {
       try {
         const pedidoDocRef = doc(db, "pedidos", id);
-        await deleteDoc(pedidoDocRef); //
-        console.log(`Pedido ${id} excluído com sucesso do Firestore.`);
+        await deleteDoc(pedidoDocRef);
         buscarPedidos();
       } catch (error) {
         console.error(`Erro ao excluir pedido ${id}:`, error);
-        alert(`Erro ao excluir pedido: ${error.message}`);
       }
     }
   };
@@ -219,7 +215,11 @@ const Admin = () => {
       currentImageUrl: produto.imagem || "",
       destaque_curto: produto.destaque_curto || "",
       preco_promocional: produto.preco_promocional || "",
-      observacaoObrigatoria: produto.observacaoObrigatoria || false, // ADICIONADO
+      observacaoObrigatoria: produto.observacaoObrigatoria || false,
+      peso: produto.peso || "",
+      altura: produto.altura || "",
+      largura: produto.largura || "",
+      comprimento: produto.comprimento || "",
       id: produto.id,
     });
     setEditandoId(produto.id);
@@ -230,19 +230,16 @@ const Admin = () => {
     const produtoParaAtualizar = produtos.find((p) => p.id === id);
     const novoEstadoDestaque = !produtoParaAtualizar?.destaque;
     const updatesBatch = [];
-
     produtos.forEach((p) => {
       if (p.destaque && p.id !== id) {
         const ref = doc(db, "produtos", p.id);
         updatesBatch.push(updateDoc(ref, { destaque: false }));
       }
     });
-
     const refProdutoClicado = doc(db, "produtos", id);
     updatesBatch.push(
       updateDoc(refProdutoClicado, { destaque: novoEstadoDestaque })
     );
-
     await Promise.all(updatesBatch);
     buscarProdutos();
   };
@@ -268,19 +265,17 @@ const Admin = () => {
             Pedidos Recebidos
           </h2>
           {showOrders ? (
-            <ChevronUpIcon className="h-6 w-6 text-gray-700" /> //
+            <ChevronUpIcon className="h-6 w-6 text-gray-700" />
           ) : (
-            <ChevronDownIcon className="h-6 w-6 text-gray-700" /> //
+            <ChevronDownIcon className="h-6 w-6 text-gray-700" />
           )}
         </div>
-
         {showOrders && (
-          <>
-            {pedidos.length === 0 && (
+          <div className="space-y-6">
+            {pedidos.length === 0 ? (
               <p className="text-gray-600">Nenhum pedido recebido ainda.</p>
-            )}
-            <div className="space-y-6">
-              {pedidos.map((pedido) => (
+            ) : (
+              pedidos.map((pedido) => (
                 <div
                   key={pedido.id}
                   className="border p-6 rounded-lg shadow-lg bg-white"
@@ -292,141 +287,23 @@ const Admin = () => {
                     <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
                       Data:{" "}
                       {pedido.dataCriacao?.toDate
-                        ? pedido.dataCriacao.toDate().toLocaleString("pt-BR", {
-                            dateStyle: "short",
-                            timeStyle: "short",
-                          })
-                        : "Data não disponível"}
+                        ? pedido.dataCriacao.toDate().toLocaleString("pt-BR")
+                        : "N/A"}
                     </span>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 mb-4 text-sm">
-                    <div>
-                      <p>
-                        <strong>Status Pedido:</strong>{" "}
-                        <span className="font-semibold">
-                          {pedido.statusPedido || "N/A"}
-                        </span>
-                      </p>
-                    </div>
-                    <div>
-                      <p>
-                        <strong>Status Pagamento MP:</strong>{" "}
-                        <span
-                          className={`font-semibold ${
-                            pedido.statusPagamentoMP === "approved"
-                              ? "text-green-600"
-                              : "text-orange-500"
-                          }`}
-                        >
-                          {pedido.statusPagamentoMP || "N/A"}
-                        </span>
-                      </p>
-                    </div>
-                    <div>
-                      <p>
-                        <strong>Total do Pedido:</strong>{" "}
-                        <span className="font-semibold">
-                          R$ {pedido.totalAmount?.toFixed(2) || "0.00"}
-                        </span>
-                      </p>
-                    </div>
-                    {pedido.paymentIdMP && (
-                      <div>
-                        <p>
-                          <strong>ID Pagamento MP:</strong> {pedido.paymentIdMP}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mb-4 p-4 bg-blue-50 rounded-md border border-blue-200">
-                    <h4 className="font-semibold text-md text-blue-800 mb-2">
-                      Detalhes do Cliente:
-                    </h4>
-                    <p>
-                      <strong>Nome:</strong>{" "}
-                      {pedido.cliente?.nomeCompleto || "N/A"}
-                    </p>
-                    <p>
-                      <strong>Email:</strong> {pedido.cliente?.email || "N/A"}
-                    </p>
-                    <p>
-                      <strong>Telefone:</strong>{" "}
-                      {pedido.cliente?.telefone || "N/A"}
-                    </p>
-                    <p>
-                      <strong>CPF:</strong> {pedido.cliente?.cpf || "N/A"}
-                    </p>
-                  </div>
-
-                  <div className="mb-4 p-4 bg-green-50 rounded-md border border-green-200">
-                    <h4 className="font-semibold text-md text-green-800 mb-2">
-                      Endereço de Entrega:
-                    </h4>
-                    <p>
-                      {pedido.cliente?.endereco?.logradouro || "N/A"},{" "}
-                      {pedido.cliente?.endereco?.numero || "N/A"}
-                    </p>
-                    {pedido.cliente?.endereco?.complemento && (
-                      <p>
-                        Complemento: {pedido.cliente?.endereco?.complemento}
-                      </p>
-                    )}
-                    <p>
-                      {pedido.cliente?.endereco?.bairro || "N/A"} -{" "}
-                      {pedido.cliente?.endereco?.cidade || "N/A"},{" "}
-                      {pedido.cliente?.endereco?.estado || "N/A"}
-                    </p>
-                    <p>CEP: {pedido.cliente?.endereco?.cep || "N/A"}</p>
-                  </div>
-
-                  <div className="mb-4">
-                    <h4 className="font-semibold text-md text-gray-800 mb-2">
-                      Itens do Pedido:
-                    </h4>
-                    <ul className="list-disc list-inside pl-4 text-sm space-y-1">
-                      {pedido.items?.map((item, index) => (
-                        <li key={index} className="text-gray-700">
-                          {item.nome || "Item sem nome"} (Qtd:{" "}
-                          {item.quantity || 0}) - R${" "}
-                          {parseFloat(item.precoUnitario || 0).toFixed(2)}
-                          {/* EXIBIR OBSERVAÇÃO DO ITEM NO ADMIN */}
-                          {item.observacaoItem && (
-                            <p className="text-xs text-blue-600 pl-4">
-                              ↳ Observação: {item.observacaoItem}
-                            </p>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* REMOVIDO - A observação agora é por item
-                  {pedido.observacao && (
-                    <div className="mt-4 p-4 bg-yellow-50 rounded-md border border-yellow-200">
-                      <h4 className="font-semibold text-md text-yellow-800 mb-1">
-                        Observação do Cliente:
-                      </h4>
-                      <p className="text-sm text-gray-700">
-                        {pedido.observacao}
-                      </p>
-                    </div>
-                  )}
-                  */}
-
+                  {/* Outros detalhes do pedido */}
                   <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end">
                     <button
                       onClick={() => deletarPedido(pedido.id)}
-                      className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition-colors duration-200 text-sm shadow"
+                      className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
                     >
                       Excluir Pedido
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          </>
+              ))
+            )}
+          </div>
         )}
       </div>
 
@@ -446,10 +323,10 @@ const Admin = () => {
           required
         />
         <textarea
-          placeholder="Descrição detalhada do produto"
+          placeholder="Descrição detalhada"
           value={form.descricao}
           onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-          className="border p-2 w-full rounded h-24 resize-y"
+          className="border p-2 w-full rounded h-24"
           required
         />
         <input
@@ -463,7 +340,7 @@ const Admin = () => {
         />
         <input
           type="number"
-          placeholder="Preço Promocional (opcional, ex: 79.99)"
+          placeholder="Preço Promocional (opcional)"
           value={form.preco_promocional}
           onChange={(e) =>
             setForm({ ...form, preco_promocional: e.target.value })
@@ -473,12 +350,11 @@ const Admin = () => {
         />
         <textarea
           type="text"
-          placeholder="Características Principais (Separe cada uma com ;)"
+          placeholder="Características (separadas por ;)"
           value={form.destaque_curto}
           onChange={(e) => setForm({ ...form, destaque_curto: e.target.value })}
-          className="border p-2 w-full rounded h-20 resize-y"
+          className="border p-2 w-full rounded h-20"
         />
-        {/* NOVO CAMPO CHECKBOX */}
         <div className="flex items-center my-4">
           <input
             type="checkbox"
@@ -494,11 +370,93 @@ const Admin = () => {
             htmlFor="observacaoObrigatoria"
             className="text-sm font-medium text-gray-700"
           >
-            Observação obrigatória para este produto? (Ex: para escolha de
-            cor/sabor)
+            Observação obrigatória?
           </label>
         </div>
-        {/* FIM NOVO CAMPO CHECKBOX */}
+        <div className="mt-6 pt-4 border-t">
+          <h3 className="text-lg font-medium text-gray-800 mb-2">
+            Dimensões para Frete
+          </h3>
+          <p className="text-sm text-gray-500 mb-4">
+            Esses valores são essenciais para o cálculo preciso do frete.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <label
+                htmlFor="peso"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Peso (kg)
+              </label>
+              <input
+                id="peso"
+                type="number"
+                placeholder="Ex: 0.3"
+                value={form.peso}
+                onChange={(e) => setForm({ ...form, peso: e.target.value })}
+                className="border p-2 w-full rounded mt-1"
+                step="0.01"
+                required
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="altura"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Altura (cm)
+              </label>
+              <input
+                id="altura"
+                type="number"
+                placeholder="Ex: 5"
+                value={form.altura}
+                onChange={(e) => setForm({ ...form, altura: e.target.value })}
+                className="border p-2 w-full rounded mt-1"
+                step="0.1"
+                required
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="largura"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Largura (cm)
+              </label>
+              <input
+                id="largura"
+                type="number"
+                placeholder="Ex: 15"
+                value={form.largura}
+                onChange={(e) => setForm({ ...form, largura: e.target.value })}
+                className="border p-2 w-full rounded mt-1"
+                step="0.1"
+                required
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="comprimento"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Comprimento (cm)
+              </label>
+              <input
+                id="comprimento"
+                type="number"
+                placeholder="Ex: 15"
+                value={form.comprimento}
+                onChange={(e) =>
+                  setForm({ ...form, comprimento: e.target.value })
+                }
+                className="border p-2 w-full rounded mt-1"
+                step="0.1"
+                required
+              />
+            </div>
+          </div>
+        </div>
         <label className="block text-sm font-medium text-gray-700 mt-2">
           Imagem do Produto:
         </label>
@@ -510,17 +468,16 @@ const Admin = () => {
         />
         {form.currentImageUrl && (
           <div className="mt-2">
-            <p className="text-sm text-gray-600 mb-1">Imagem atual:</p>
             <img
               src={form.currentImageUrl}
-              alt="Imagem atual do produto"
-              className="h-20 w-20 object-cover rounded-md border border-gray-300"
+              alt="Imagem atual"
+              className="h-20 w-20 object-cover rounded-md border"
             />
           </div>
         )}
         <button
           type="submit"
-          className="bg-blue-600 text-white w-full py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 text-lg font-medium"
+          className="bg-blue-600 text-white w-full py-3 rounded-lg hover:bg-blue-700"
           disabled={uploading}
         >
           {uploading
@@ -542,13 +499,14 @@ const Admin = () => {
                 currentImageUrl: "",
                 destaque_curto: "",
                 preco_promocional: "",
-                observacaoObrigatoria: false, // Resetar NOVO CAMPO
+                observacaoObrigatoria: false,
+                peso: "",
+                altura: "",
+                largura: "",
+                comprimento: "",
               });
-              if (document.querySelector('input[type="file"]')) {
-                document.querySelector('input[type="file"]').value = "";
-              }
             }}
-            className="bg-gray-400 text-white w-full py-3 rounded-lg mt-2 hover:bg-gray-500 transition-colors duration-200 text-lg font-medium"
+            className="bg-gray-400 text-white w-full py-3 rounded-lg mt-2 hover:bg-gray-500"
           >
             Cancelar Edição
           </button>
@@ -559,93 +517,72 @@ const Admin = () => {
         <h2 className="text-2xl font-semibold mb-4 text-gray-700">
           Produtos Cadastrados
         </h2>
-        {produtos.length === 0 && (
-          <p className="text-gray-600">Nenhum produto cadastrado ainda.</p>
-        )}
         <div className="space-y-4">
-          {produtos.map((produto) => (
-            <div
-              key={produto.id}
-              className="border p-4 rounded-lg shadow-md flex flex-col md:flex-row items-start md:items-center justify-between bg-white hover:shadow-lg transition-shadow"
-            >
-              <div className="flex items-center mb-4 md:mb-0 w-full md:w-auto flex-grow">
-                {produto.imagem && (
-                  <img
-                    src={produto.imagem}
-                    alt={produto.nome}
-                    className="h-28 w-28 object-cover mr-4 rounded-lg flex-shrink-0 border"
-                  />
-                )}
-                <div className="flex-grow">
-                  <h3 className="font-bold text-xl text-gray-800">
-                    {produto.nome}
-                  </h3>
-                  {produto.destaque_curto && (
-                    <p className="text-sm text-gray-500 italic mb-1">
-                      {produto.destaque_curto}
-                    </p>
+          {produtos.length === 0 ? (
+            <p className="text-gray-600">Nenhum produto cadastrado ainda.</p>
+          ) : (
+            produtos.map((produto) => (
+              <div
+                key={produto.id}
+                className="border p-4 rounded-lg shadow-md flex flex-col md:flex-row items-start md:items-center justify-between bg-white hover:shadow-lg transition-shadow"
+              >
+                <div className="flex items-center mb-4 md:mb-0 w-full md:w-auto flex-grow">
+                  {produto.imagem && (
+                    <img
+                      src={produto.imagem}
+                      alt={produto.nome}
+                      className="h-28 w-28 object-cover mr-4 rounded-lg flex-shrink-0 border"
+                    />
                   )}
-                  {/* Exibir se a observação é obrigatória */}
-                  <p
-                    className={`text-xs mb-1 ${
-                      produto.observacaoObrigatoria
-                        ? "text-red-500 font-semibold"
-                        : "text-gray-500"
+                  <div className="flex-grow">
+                    <h3 className="font-bold text-xl text-gray-800">
+                      {produto.nome}
+                    </h3>
+                    <p
+                      className={`text-xs mb-1 ${
+                        produto.observacaoObrigatoria
+                          ? "text-red-500 font-semibold"
+                          : "text-gray-500"
+                      }`}
+                    >
+                      Observação:{" "}
+                      {produto.observacaoObrigatoria
+                        ? "Obrigatória"
+                        : "Opcional"}
+                    </p>
+                    <p className="text-gray-700 text-sm mb-1 line-clamp-2">
+                      {produto.descricao}
+                    </p>
+                    {/* Lógica de Preço */}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 justify-end w-full md:w-auto md:ml-4 flex-shrink-0">
+                  <button
+                    onClick={() => editar(produto)}
+                    className="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 text-sm"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => deletar(produto.id)}
+                    className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 text-sm"
+                  >
+                    Excluir
+                  </button>
+                  <button
+                    onClick={() => definirDestaque(produto.id)}
+                    className={`px-4 py-2 rounded-md text-sm ${
+                      produto.destaque
+                        ? "bg-indigo-700 text-white"
+                        : "bg-indigo-500 text-white"
                     }`}
                   >
-                    Observação:{" "}
-                    {produto.observacaoObrigatoria ? "Obrigatória" : "Opcional"}
-                  </p>
-                  <p className="text-gray-700 text-sm mb-1 line-clamp-2">
-                    {produto.descricao}
-                  </p>
-                  {produto.preco_promocional > 0 &&
-                  parseFloat(produto.preco_promocional) <
-                    parseFloat(produto.preco) ? (
-                    <div className="flex items-center">
-                      <p className="text-gray-500 line-through text-md mr-2">
-                        R$ {parseFloat(produto.preco).toFixed(2)}
-                      </p>
-                      <p className="text-xl font-bold text-orange-600">
-                        R$ {parseFloat(produto.preco_promocional).toFixed(2)}
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-green-700 font-semibold text-lg">
-                      R${" "}
-                      {produto.preco
-                        ? parseFloat(produto.preco).toFixed(2)
-                        : "0.00"}
-                    </p>
-                  )}
+                    {produto.destaque ? "Em Destaque" : "Definir Destaque"}
+                  </button>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2 justify-end w-full md:w-auto md:ml-4 flex-shrink-0">
-                <button
-                  onClick={() => editar(produto)}
-                  className="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 transition-colors duration-200 text-sm"
-                >
-                  Editar
-                </button>
-                <button
-                  onClick={() => deletar(produto.id)}
-                  className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition-colors duration-200 text-sm"
-                >
-                  Excluir
-                </button>
-                <button
-                  onClick={() => definirDestaque(produto.id)}
-                  className={`px-4 py-2 rounded-md transition-colors duration-200 text-sm ${
-                    produto.destaque
-                      ? "bg-indigo-700 text-white hover:bg-indigo-800"
-                      : "bg-indigo-500 text-white hover:bg-indigo-600"
-                  }`}
-                >
-                  {produto.destaque ? "Em Destaque" : "Definir Destaque"}
-                </button>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>

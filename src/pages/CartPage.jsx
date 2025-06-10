@@ -1,13 +1,12 @@
 // src/pages/CartPage.jsx
 import React, { useState } from "react";
-import { useCart } from "../context/CartContext"; //
+import { useCart } from "../context/CartContext";
 import { Link as RouterLink } from "react-router-dom";
-import { getFunctions, httpsCallable } from "firebase/functions"; //
-import { db } from "../FirebaseConfig"; //
-import { collection, addDoc, serverTimestamp } from "firebase/firestore"; //
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { db } from "../FirebaseConfig";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 function CartPage() {
-  // REMOVIDO observation, setObservation. A observação agora é por item.
   const {
     cartItems,
     updateQuantity,
@@ -15,8 +14,15 @@ function CartPage() {
     getTotal,
     updateItemObservation,
     clearCart,
-  } = useCart(); // ADICIONADO updateItemObservation
+  } = useCart();
+
+  const [cep, setCep] = useState("");
+  const [loadingShipping, setLoadingShipping] = useState(false);
+  const [shippingOptions, setShippingOptions] = useState([]);
+  const [selectedShipping, setSelectedShipping] = useState(null);
+  const [shippingError, setShippingError] = useState("");
   const [loadingPayment, setLoadingPayment] = useState(false);
+
   const [cliente, setCliente] = useState({
     nomeCompleto: "",
     email: "",
@@ -52,52 +58,102 @@ function CartPage() {
 
   const handleClienteChange = (e) => {
     const { name, value } = e.target;
-    setCliente((prevCliente) => ({ ...prevCliente, [name]: value }));
+    setCliente((prev) => ({ ...prev, [name]: value }));
     if (formErrors[name]) {
-      setFormErrors((prevErrors) => ({ ...prevErrors, [name]: null }));
+      setFormErrors((prev) => ({ ...prev, [name]: null }));
+    }
+    if (name === "cep") {
+      setCep(value.replace(/\D/g, ""));
+    }
+  };
+
+  const handleCepChange = (e) => {
+    const value = e.target.value.replace(/\D/g, "");
+    setCep(value);
+  };
+
+  const handleCalculateShipping = async () => {
+    if (!cep || cep.length < 8) {
+      setShippingError("Por favor, insira um CEP válido.");
+      return;
+    }
+    setLoadingShipping(true);
+    setShippingError("");
+    setShippingOptions([]);
+    setSelectedShipping(null);
+
+    try {
+      const functionsInstance = getFunctions(undefined, "southamerica-east1");
+      const calculateShippingCallable = httpsCallable(
+        functionsInstance,
+        "calculateShipping"
+      );
+
+      const productsPayload = cartItems.map((item) => ({
+        id: item.id,
+        unit_price:
+          item.preco_promocional && item.preco_promocional < item.preco
+            ? item.preco_promocional
+            : item.preco,
+        quantity: item.quantity,
+        peso: item.peso,
+        altura: item.altura,
+        largura: item.largura,
+        comprimento: item.comprimento,
+      }));
+
+      const response = await calculateShippingCallable({
+        from_cep: "28979285", // COLOQUE SEU CEP DE ORIGEM AQUI
+        to_cep: cep,
+        products: productsPayload,
+      });
+
+      if (response.data && response.data.length > 0) {
+        setShippingOptions(response.data);
+      } else {
+        setShippingError("Nenhuma opção de frete encontrada para este CEP.");
+      }
+    } catch (error) {
+      console.error("Erro ao calcular frete:", error);
+      const defaultError =
+        "Não foi possível calcular o frete. Verifique o CEP e tente novamente.";
+      setShippingError(error.details?.message || defaultError);
+    } finally {
+      setLoadingShipping(false);
+    }
+  };
+
+  const handleSelectShipping = (option) => {
+    setSelectedShipping(option);
+    if (formErrors.shipping) {
+      setFormErrors((prev) => ({ ...prev, shipping: null }));
     }
   };
 
   const validateForm = () => {
     const errors = {};
-    // Validação dos campos do cliente (existente)
     if (!cliente.nomeCompleto.trim())
       errors.nomeCompleto = "Nome completo é obrigatório.";
-    else if (cliente.nomeCompleto.trim().split(" ").length < 2)
-      errors.nomeCompleto = "Por favor, insira nome e sobrenome.";
-    if (!cliente.email.trim()) errors.email = "Email é obrigatório.";
-    else if (!/\S+@\S+\.\S+/.test(cliente.email))
+    if (!cliente.email.trim() || !/\S+@\S+\.\S+/.test(cliente.email))
       errors.email = "Email inválido.";
-    if (!cliente.telefone.trim()) errors.telefone = "Telefone é obrigatório.";
-    else if (!/^\d{10,11}$/.test(cliente.telefone.replace(/\D/g, "")))
-      errors.telefone = "Telefone inválido (com DDD, 10 ou 11 dígitos).";
-
-    // CPF Validation MODIFIED
-    if (!cliente.cpf.trim()) errors.cpf = "CPF é obrigatório.";
-    else if (cliente.cpf.trim().length !== 11)
-      errors.cpf =
-        "CPF deve ter 11 caracteres (letras e números são permitidos).";
-
-    // CEP Validation MODIFIED
-    const cepTrimmed = cliente.cep.trim();
-    if (!cepTrimmed) errors.cep = "CEP é obrigatório.";
-    else if (cepTrimmed.length < 8 || cepTrimmed.length > 9)
-      errors.cep =
-        "CEP deve ter entre 8 e 9 caracteres (letras e números são permitidos, formato XXXXXXXX ou XXXXX-XXX).";
-
+    if (
+      !cliente.telefone.trim() ||
+      !/^\d{10,11}$/.test(cliente.telefone.replace(/\D/g, ""))
+    )
+      errors.telefone = "Telefone inválido (com DDD).";
+    if (!cliente.cpf.trim() || cliente.cpf.replace(/\D/g, "").length !== 11)
+      errors.cpf = "CPF inválido.";
+    if (!cliente.cep.trim() || cliente.cep.replace(/\D/g, "").length !== 8)
+      errors.cep = "CEP inválido.";
     if (!cliente.logradouro.trim())
       errors.logradouro = "Logradouro é obrigatório.";
     if (!cliente.numero.trim()) errors.numero = "Número é obrigatório.";
     if (!cliente.bairro.trim()) errors.bairro = "Bairro é obrigatório.";
     if (!cliente.cidade.trim()) errors.cidade = "Cidade é obrigatória.";
-    if (!cliente.estado.trim()) errors.estado = "Estado é obrigatório.";
-    else if (!/^[A-Z]{2}$/i.test(cliente.estado))
-      //
-      errors.estado = "Estado inválido (sigla com 2 letras).";
+    if (!cliente.estado.trim() || !/^[A-Z]{2}$/i.test(cliente.estado))
+      errors.estado = "Estado inválido (sigla).";
 
-    // NOVA VALIDAÇÃO para observações de itens
     cartItems.forEach((item) => {
-      // Verifica se item.observacaoObrigatoria existe e é true
       if (
         item.observacaoObrigatoria &&
         (!item.observacaoItem || !item.observacaoItem.trim())
@@ -105,73 +161,33 @@ function CartPage() {
         errors[
           `observacaoItem_${item.id}`
         ] = `A observação para ${item.nome} é obrigatória.`;
-      } else if (errors[`observacaoItem_${item.id}`]) {
-        // Limpa o erro se a condição não for mais atendida
-        delete errors[`observacaoItem_${item.id}`];
       }
     });
+
+    if (shippingOptions.length > 0 && !selectedShipping) {
+      errors.shipping = "Por favor, selecione uma opção de frete.";
+    }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const total = getTotal();
-
-  const functionsInstance = getFunctions(undefined, "southamerica-east1"); //
-  const createPreferenceCallable = httpsCallable(
-    functionsInstance,
-    "createPaymentPreference"
-  ); //
+  const subtotal = getTotal();
+  const finalTotal =
+    subtotal + (selectedShipping ? Number(selectedShipping.price) : 0);
 
   const handleCheckout = async (e) => {
     e.preventDefault();
     if (!validateForm()) {
       alert("Por favor, corrija os erros no formulário antes de prosseguir.");
-      const firstErrorKey = Object.keys(formErrors).find(
-        (key) => formErrors[key]
-      );
-      if (firstErrorKey) {
-        let firstErrorFieldId = firstErrorKey;
-        // Se for um erro de observação de item, o ID do elemento é prefixado
-        if (firstErrorKey.startsWith("observacaoItem_")) {
-          firstErrorFieldId = firstErrorKey.replace(
-            "observacaoItem_",
-            "observacaoItem-"
-          );
-        }
-        const fieldElement = document.getElementById(firstErrorFieldId);
-        if (fieldElement) {
-          fieldElement.focus();
-          fieldElement.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-      }
-      return;
-    }
-    if (cartItems.length === 0) {
-      alert("Seu carrinho está vazio!");
       return;
     }
     setLoadingPayment(true);
     let orderId = null;
+
     try {
       const newOrderRef = await addDoc(collection(db, "pedidos"), {
-        //
-        //
-        cliente: {
-          nomeCompleto: cliente.nomeCompleto,
-          email: cliente.email,
-          telefone: cliente.telefone.replace(/\D/g, ""), // Mantém apenas números para telefone
-          cpf: cliente.cpf.trim(), // MODIFIED: Salva o CPF como foi digitado
-          endereco: {
-            cep: cliente.cep.trim(), // MODIFIED: Salva o CEP como foi digitado
-            logradouro: cliente.logradouro,
-            numero: cliente.numero,
-            complemento: cliente.complemento,
-            bairro: cliente.bairro,
-            cidade: cliente.cidade,
-            estado: cliente.estado.toUpperCase(), //
-          },
-        },
+        cliente,
         items: cartItems.map((item) => ({
           id: item.id,
           nome: item.nome,
@@ -182,22 +198,25 @@ function CartPage() {
               ? item.preco_promocional
               : item.preco
           ),
-          observacaoItem: item.observacaoItem || "", // ADICIONADO: salvar observação do item
+          observacaoItem: item.observacaoItem || "",
         })),
-        totalAmount: total,
+        totalAmount: finalTotal,
+        shippingCost: selectedShipping ? Number(selectedShipping.price) : 0,
+        shippingMethod: selectedShipping
+          ? selectedShipping.name
+          : "Não aplicável",
         statusPedido: "pendente_pagamento",
         statusPagamentoMP: "pendente",
-        // REMOVIDO: observacao: observation, (a observação agora é por item)
-        dataCriacao: serverTimestamp(), //
+        dataCriacao: serverTimestamp(),
       });
       orderId = newOrderRef.id;
-      console.log("Pedido criado no Firestore com ID:", orderId);
     } catch (error) {
       console.error("Erro ao criar pedido no Firestore:", error);
       alert("Não foi possível registrar seu pedido. Tente novamente.");
       setLoadingPayment(false);
       return;
     }
+
     const itemsPayload = cartItems.map((item) => ({
       id: item.id,
       title: item.nome,
@@ -210,35 +229,33 @@ function CartPage() {
           : item.preco
       ),
     }));
-    const nomeArray = cliente.nomeCompleto.trim().split(" "); //
-    const nome = nomeArray[0]; //
-    const sobrenome = nomeArray.slice(1).join(" "); //
+
+    if (selectedShipping && Number(selectedShipping.price) > 0) {
+      itemsPayload.push({
+        id: "shipping_cost",
+        title: `Frete - ${selectedShipping.name}`,
+        description: "Custo de envio",
+        quantity: 1,
+        unit_price: Number(selectedShipping.price),
+      });
+    }
+
+    const functionsInstance = getFunctions(undefined, "southamerica-east1");
+    const createPreferenceCallable = httpsCallable(
+      functionsInstance,
+      "createPaymentPreference"
+    );
+
+    const nomeArray = cliente.nomeCompleto.trim().split(" ");
     const payerInfoPayload = {
-      name: nome,
-      surname: sobrenome,
+      name: nomeArray[0],
+      surname: nomeArray.slice(1).join(" "),
       email: cliente.email,
     };
-    const baseUrl = window.location.origin; //
-    const webhookUrl = import.meta.env.VITE_MERCADO_PAGO_WEBHOOK_URL; //
-    if (!webhookUrl || webhookUrl.includes("COLE_A_URL_DA_SUA_FUNCAO")) {
-      //
-      console.error("ERRO CRÍTICO: URL de Webhook não configurada.");
-      alert("Erro de configuração. Contate o suporte.");
-      setLoadingPayment(false);
-      return;
-    }
+    const baseUrl = window.location.origin;
+    const webhookUrl = import.meta.env.VITE_MERCADO_PAGO_WEBHOOK_URL;
+
     try {
-      console.log("Enviando para createPaymentPreference:", {
-        items: itemsPayload,
-        payerInfo: payerInfoPayload,
-        externalReference: orderId,
-        backUrls: {
-          success: `${baseUrl}/pagamento/sucesso?order_id=${orderId}`,
-          failure: `${baseUrl}/pagamento/falha?order_id=${orderId}`,
-          pending: `${baseUrl}/pagamento/pendente?order_id=${orderId}`,
-        },
-        notificationUrl: webhookUrl,
-      });
       const result = await createPreferenceCallable({
         items: itemsPayload,
         payerInfo: payerInfoPayload,
@@ -250,25 +267,14 @@ function CartPage() {
         },
         notificationUrl: webhookUrl,
       });
-      console.log("Resposta da Cloud Function:", result);
       if (result.data && result.data.init_point) {
-        clearCart(); // Limpa o carrinho após iniciar o pagamento
+        clearCart();
         window.location.href = result.data.init_point;
       } else {
-        console.error("Erro: init_point não encontrado.", result.data);
-        alert("Não foi possível iniciar o pagamento. (PREF_INIT_FAIL)");
+        alert("Não foi possível iniciar o pagamento.");
       }
     } catch (error) {
-      console.error("Erro ao chamar Cloud Function:", error);
-      let displayError =
-        "Ocorreu um erro ao tentar processar seu pedido. Por favor, tente novamente mais tarde.";
-      if (error.details && error.details.message) {
-        //
-        displayError = error.details.message;
-      } else if (error.message) {
-        displayError = error.message;
-      }
-      alert(displayError + " (Código: CF_CALL_ERROR)");
+      alert(`Ocorreu um erro: ${error.message}`);
     } finally {
       setLoadingPayment(false);
     }
@@ -280,26 +286,10 @@ function CartPage() {
         <h2 className="text-3xl font-extrabold text-gray-900 mb-6">
           Seu carrinho está vazio.
         </h2>
-        <p className="text-lg text-gray-600 mb-8">
-          Que tal explorar nossos produtos incríveis?
-        </p>
         <RouterLink
           to="/"
-          className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-600 transition duration-300 ease-in-out"
+          className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5 mr-2"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            {" "}
-            <path
-              fillRule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414L7.5 8.586 5.707 6.879a1 1 0 00-1.414 1.414l2.5 2.5a1 1 0 001.414 0l4-4z"
-              clipRule="evenodd"
-            />{" "}
-          </svg>
           Voltar para a loja
         </RouterLink>
       </div>
@@ -319,7 +309,7 @@ function CartPage() {
                 ? item.destaque_curto
                     .split(";")
                     .map((c) => c.trim())
-                    .filter((c) => c !== "")
+                    .filter(Boolean)
                 : [];
               return (
                 <li key={item.id} className="flex flex-col sm:flex-row py-6">
@@ -371,7 +361,6 @@ function CartPage() {
                           </ul>
                         </div>
                       )}
-                      {/* CAMPO DE OBSERVAÇÃO POR ITEM */}
                       <div className="mt-3">
                         <label
                           htmlFor={`observacaoItem-${item.id}`}
@@ -392,28 +381,23 @@ function CartPage() {
                             updateItemObservation(item.id, e.target.value)
                           }
                           rows="2"
-                          className={`mt-1 block w-full p-2 border rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm ${
-                            item.observacaoObrigatoria &&
-                            !item.observacaoItem &&
+                          className={`mt-1 block w-full p-2 border rounded-md shadow-sm ${
                             formErrors[`observacaoItem_${item.id}`]
                               ? "border-red-500"
                               : "border-gray-300"
                           }`}
                           placeholder={
                             item.observacaoObrigatoria
-                              ? "Veja as opções do produto nas caracteristicas e escreva aqui o sabor ou cor do produto (Obrigatório)"
-                              : "Observações sobre este item (Opcional)"
+                              ? "Ex: Cor, Sabor, etc. (Obrigatório)"
+                              : "Observações (Opcional)"
                           }
                         />
-                        {item.observacaoObrigatoria &&
-                          !item.observacaoItem &&
-                          formErrors[`observacaoItem_${item.id}`] && (
-                            <p className="text-red-500 text-xs mt-1">
-                              {formErrors[`observacaoItem_${item.id}`]}
-                            </p>
-                          )}
+                        {formErrors[`observacaoItem_${item.id}`] && (
+                          <p className="text-red-500 text-xs mt-1">
+                            {formErrors[`observacaoItem_${item.id}`]}
+                          </p>
+                        )}
                       </div>
-                      {/* FIM CAMPO DE OBSERVAÇÃO POR ITEM */}
                     </div>
                     <div className="flex flex-1 items-end justify-between text-sm mt-4">
                       <div className="flex items-center">
@@ -425,10 +409,11 @@ function CartPage() {
                         </label>
                         <div className="flex items-center border border-gray-300 rounded-md shadow-sm">
                           <button
+                            type="button"
                             onClick={() =>
                               handleDecreaseQuantity(item.id, item.quantity)
                             }
-                            className="p-2 text-gray-700 hover:bg-gray-100 rounded-l-md focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            className="p-2 text-gray-700 hover:bg-gray-100 rounded-l-md"
                           >
                             -
                           </button>
@@ -440,17 +425,14 @@ function CartPage() {
                             onChange={(e) =>
                               handleQuantityChange(item.id, e.target.value)
                             }
-                            className="w-12 text-center text-gray-900 focus:outline-none focus:ring-0 border-l border-r border-gray-300"
-                            style={{
-                              MozAppearance: "textfield",
-                              WebkitAppearance: "none",
-                            }}
+                            className="w-12 text-center text-gray-900 focus:outline-none border-l border-r"
                           />
                           <button
+                            type="button"
                             onClick={() =>
                               handleIncreaseQuantity(item.id, item.quantity)
                             }
-                            className="p-2 text-gray-700 hover:bg-gray-100 rounded-r-md focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            className="p-2 text-gray-700 hover:bg-gray-100 rounded-r-md"
                           >
                             +
                           </button>
@@ -458,8 +440,9 @@ function CartPage() {
                       </div>
                       <div className="flex">
                         <button
+                          type="button"
                           onClick={() => handleRemoveItem(item.id)}
-                          className="text-red-600 hover:text-red-800 transition duration-200 ease-in-out font-medium"
+                          className="text-red-600 hover:text-red-800 font-medium"
                         >
                           Remover
                         </button>
@@ -470,7 +453,6 @@ function CartPage() {
               );
             })}
           </ul>
-          {/* REMOVIDO: Textarea de Observação GERAL */}
 
           {cartItems.length > 0 && (
             <form
@@ -537,7 +519,7 @@ function CartPage() {
                     htmlFor="telefone"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    Telefone* (com DDD, apenas números)
+                    Telefone*
                   </label>
                   <input
                     type="tel"
@@ -571,7 +553,7 @@ function CartPage() {
                   id="cpf"
                   value={cliente.cpf}
                   onChange={handleClienteChange}
-                  maxLength="14" // Ajustado para permitir formatação como XXX.XXX.XXX-XX
+                  maxLength="14"
                   required
                   className={`w-full p-2 border rounded-md shadow-sm ${
                     formErrors.cpf ? "border-red-500" : "border-gray-300"
@@ -597,7 +579,7 @@ function CartPage() {
                   id="cep"
                   value={cliente.cep}
                   onChange={handleClienteChange}
-                  maxLength="9" // Ajustado para permitir formatação como XXXXX-XXX
+                  maxLength="9"
                   required
                   className={`w-full p-2 border rounded-md shadow-sm ${
                     formErrors.cep ? "border-red-500" : "border-gray-300"
@@ -613,7 +595,7 @@ function CartPage() {
                     htmlFor="logradouro"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    Logradouro* (Rua, Av.)
+                    Logradouro*
                   </label>
                   <input
                     type="text"
@@ -665,7 +647,7 @@ function CartPage() {
                     htmlFor="complemento"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    Complemento (opcional)
+                    Complemento
                   </label>
                   <input
                     type="text"
@@ -731,7 +713,7 @@ function CartPage() {
                     htmlFor="estado"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    Estado* (sigla, ex: RJ)
+                    Estado* (sigla)
                   </label>
                   <input
                     type="text"
@@ -755,32 +737,105 @@ function CartPage() {
             </form>
           )}
         </div>
-        <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow-md h-fit">
+
+        <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow-md h-fit sticky top-28">
           <h3 className="text-2xl font-bold text-gray-900 mb-4">
             Resumo do Pedido
           </h3>
-          <div className="flex justify-between items-center text-gray-700 text-lg mb-2">
-            <span>Subtotal:</span>
-            <span>R$ {total.toFixed(2)}</span>
+
+          <div className="mb-4">
+            <label
+              htmlFor="cep-frete"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Calcular Frete
+            </label>
+            <div className="flex">
+              <input
+                type="text"
+                id="cep-frete"
+                value={cep}
+                onChange={handleCepChange}
+                placeholder="Seu CEP"
+                maxLength="8"
+                className="flex-grow p-2 border border-gray-300 rounded-l-md"
+              />
+              <button
+                type="button"
+                onClick={handleCalculateShipping}
+                disabled={loadingShipping}
+                className="bg-gray-700 text-white px-4 py-2 rounded-r-md hover:bg-gray-800 disabled:opacity-50"
+              >
+                {loadingShipping ? "..." : "Calcular"}
+              </button>
+            </div>
+            {shippingError && (
+              <p className="text-red-500 text-sm mt-2">{shippingError}</p>
+            )}
+            {formErrors.shipping && (
+              <p className="text-red-500 text-xs mt-1">{formErrors.shipping}</p>
+            )}
           </div>
-          <div className="flex justify-between items-center text-xl font-extrabold text-gray-900 border-t pt-4 mt-4">
-            <span>Total:</span>
-            <span>R$ {total.toFixed(2)}</span>
+
+          {shippingOptions.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {shippingOptions.map((option) => (
+                <label
+                  key={option.id}
+                  className="flex items-center p-3 border rounded-md cursor-pointer hover:bg-gray-50"
+                >
+                  <input
+                    type="radio"
+                    name="shipping-option"
+                    value={option.id}
+                    onChange={() => handleSelectShipping(option)}
+                    className="h-4 w-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
+                  />
+                  <div className="ml-3 text-sm flex-grow">
+                    <p className="font-medium text-gray-800">{option.name}</p>
+                    <p className="text-gray-500">
+                      {option.delivery_time} dias úteis
+                    </p>
+                  </div>
+                  <p className="font-semibold text-gray-800">
+                    R$ {Number(option.price).toFixed(2)}
+                  </p>
+                </label>
+              ))}
+            </div>
+          )}
+
+          <div className="border-t pt-4 mt-4 space-y-2">
+            <div className="flex justify-between items-center text-gray-700 text-lg">
+              <span>Subtotal:</span>
+              <span>R$ {subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center text-gray-700 text-lg">
+              <span>Frete:</span>
+              <span>
+                {selectedShipping
+                  ? `R$ ${Number(selectedShipping.price).toFixed(2)}`
+                  : "A calcular"}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-xl font-extrabold text-gray-900 pt-2">
+              <span>Total:</span>
+              <span>R$ {finalTotal.toFixed(2)}</span>
+            </div>
           </div>
+
           <button
             type="submit"
             form="checkout-form"
             disabled={loadingPayment || cartItems.length === 0}
-            className="w-full mt-6 bg-emerald-500 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-md text-lg shadow-lg transform transition duration-300 ease-in-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full mt-6 bg-emerald-500 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-md text-lg shadow-lg disabled:opacity-50"
           >
-            {loadingPayment
-              ? "Processando Pagamento..."
-              : "Finalizar Compra e Pagar"}
+            {loadingPayment ? "Processando..." : "Finalizar Compra e Pagar"}
           </button>
           <div className="mt-4 text-center">
             <RouterLink
               to="/"
-              className="text-emerald-600 hover:text-emerald-800 hover:underline transition duration-200 ease-in-out font-medium"
+              className="text-emerald-600 hover:text-emerald-800 hover:underline"
             >
               Continuar Comprando
             </RouterLink>

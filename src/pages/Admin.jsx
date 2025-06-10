@@ -25,11 +25,11 @@ const Admin = () => {
     currentImageUrl: "",
     destaque_curto: "",
     preco_promocional: "",
-    observacaoObrigatoria: false,
     peso: "",
     altura: "",
     largura: "",
     comprimento: "",
+    observacaoObrigatoria: false,
   });
   const [editandoId, setEditandoId] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -37,7 +37,7 @@ const Admin = () => {
     cloud_name: "",
     upload_preset: "",
   });
-  const [showOrders, setShowOrders] = useState(false);
+  const [showOrders, setShowOrders] = useState(true);
 
   const navigate = useNavigate();
   const produtosRef = collection(db, "produtos");
@@ -59,10 +59,7 @@ const Admin = () => {
       listaPedidos.sort((a, b) => {
         const dateA = a.dataCriacao?.toDate();
         const dateB = b.dataCriacao?.toDate();
-        if (dateA && dateB) return dateB - dateA;
-        if (dateA) return -1;
-        if (dateB) return 1;
-        return 0;
+        return (dateB || 0) - (dateA || 0);
       });
       setPedidos(listaPedidos);
     } catch (error) {
@@ -83,17 +80,11 @@ const Admin = () => {
     buscarProdutos();
     buscarPedidos();
     const configRef = doc(db, "config", "cloudinary");
-    getDoc(configRef)
-      .then((docSnap) => {
-        if (docSnap.exists()) {
-          setCloudinaryConfig(docSnap.data());
-        } else {
-          console.log("Config do Cloudinary não encontrada.");
-        }
-      })
-      .catch((error) => {
-        console.error("Erro ao buscar config do Cloudinary:", error);
-      });
+    getDoc(configRef).then((docSnap) => {
+      if (docSnap.exists()) {
+        setCloudinaryConfig(docSnap.data());
+      }
+    });
   }, []);
 
   const handleFileChange = (e) => {
@@ -103,7 +94,6 @@ const Admin = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setUploading(true);
-
     try {
       let imageUrl = form.currentImageUrl;
       if (form.imagem) {
@@ -131,7 +121,6 @@ const Admin = () => {
         const data = await response.json();
         imageUrl = data.secure_url;
       }
-
       const produtoData = {
         nome: form.nome,
         descricao: form.descricao,
@@ -147,15 +136,12 @@ const Admin = () => {
         largura: Number(form.largura),
         comprimento: Number(form.comprimento),
       };
-
       if (editandoId) {
-        const ref = doc(db, "produtos", editandoId);
-        await updateDoc(ref, produtoData);
+        await updateDoc(doc(db, "produtos", editandoId), produtoData);
         setEditandoId(null);
       } else {
         await addDoc(produtosRef, produtoData);
       }
-
       setForm({
         nome: "",
         descricao: "",
@@ -184,8 +170,7 @@ const Admin = () => {
 
   const deletar = async (id) => {
     if (window.confirm("Tem certeza que deseja excluir este produto?")) {
-      const ref = doc(db, "produtos", id);
-      await deleteDoc(ref);
+      await deleteDoc(doc(db, "produtos", id));
       buscarProdutos();
     }
   };
@@ -197,11 +182,10 @@ const Admin = () => {
       )
     ) {
       try {
-        const pedidoDocRef = doc(db, "pedidos", id);
-        await deleteDoc(pedidoDocRef);
+        await deleteDoc(doc(db, "pedidos", id));
         buscarPedidos();
       } catch (error) {
-        console.error(`Erro ao excluir pedido ${id}:`, error);
+        alert(`Erro ao excluir pedido: ${error.message}`);
       }
     }
   };
@@ -232,13 +216,13 @@ const Admin = () => {
     const updatesBatch = [];
     produtos.forEach((p) => {
       if (p.destaque && p.id !== id) {
-        const ref = doc(db, "produtos", p.id);
-        updatesBatch.push(updateDoc(ref, { destaque: false }));
+        updatesBatch.push(
+          updateDoc(doc(db, "produtos", p.id), { destaque: false })
+        );
       }
     });
-    const refProdutoClicado = doc(db, "produtos", id);
     updatesBatch.push(
-      updateDoc(refProdutoClicado, { destaque: novoEstadoDestaque })
+      updateDoc(doc(db, "produtos", id), { destaque: novoEstadoDestaque })
     );
     await Promise.all(updatesBatch);
     buscarProdutos();
@@ -250,7 +234,7 @@ const Admin = () => {
         <h1 className="text-3xl font-bold text-gray-800">Painel Admin</h1>
         <button
           onClick={handleLogout}
-          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors duration-200 shadow"
+          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
         >
           Sair
         </button>
@@ -270,6 +254,7 @@ const Admin = () => {
             <ChevronDownIcon className="h-6 w-6 text-gray-700" />
           )}
         </div>
+
         {showOrders && (
           <div className="space-y-6">
             {pedidos.length === 0 ? (
@@ -286,16 +271,121 @@ const Admin = () => {
                     </h3>
                     <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
                       Data:{" "}
-                      {pedido.dataCriacao?.toDate
-                        ? pedido.dataCriacao.toDate().toLocaleString("pt-BR")
-                        : "N/A"}
+                      {pedido.dataCriacao?.toDate().toLocaleString("pt-BR") ||
+                        "N/A"}
                     </span>
                   </div>
-                  {/* Outros detalhes do pedido */}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 mb-4 text-sm">
+                    <div>
+                      <p>
+                        <strong>Status Pagamento:</strong>{" "}
+                        <span
+                          className={`font-semibold ${
+                            pedido.statusPagamentoMP === "approved"
+                              ? "text-green-600"
+                              : "text-orange-500"
+                          }`}
+                        >
+                          {pedido.statusPagamentoMP || "N/A"}
+                        </span>
+                      </p>
+                    </div>
+                    <div>
+                      <p>
+                        <strong>Custo do Frete:</strong>{" "}
+                        <span className="font-semibold">
+                          R${" "}
+                          {pedido.shippingCost?.toFixed(2).replace(".", ",") ||
+                            "0,00"}
+                        </span>
+                      </p>
+                    </div>
+                    <div>
+                      <p>
+                        <strong>Método de Envio:</strong>{" "}
+                        <span className="font-semibold">
+                          {pedido.shippingMethod || "N/A"}
+                        </span>
+                      </p>
+                    </div>
+                    <div>
+                      <p>
+                        <strong>Total do Pedido:</strong>{" "}
+                        <span className="font-semibold">
+                          R${" "}
+                          {pedido.totalAmount?.toFixed(2).replace(".", ",") ||
+                            "0,00"}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mb-4 p-4 bg-blue-50 rounded-md border border-blue-200">
+                    <h4 className="font-semibold text-md text-blue-800 mb-2">
+                      Detalhes do Cliente:
+                    </h4>
+                    <p>
+                      <strong>Nome:</strong>{" "}
+                      {pedido.cliente?.nomeCompleto || "N/A"}
+                    </p>
+                    <p>
+                      <strong>Email:</strong> {pedido.cliente?.email || "N/A"}
+                    </p>
+                    <p>
+                      <strong>Telefone:</strong>{" "}
+                      {pedido.cliente?.telefone || "N/A"}
+                    </p>
+                    <p>
+                      <strong>CPF:</strong> {pedido.cliente?.cpf || "N/A"}
+                    </p>
+                  </div>
+
+                  <div className="mb-4 p-4 bg-green-50 rounded-md border border-green-200">
+                    <h4 className="font-semibold text-md text-green-800 mb-2">
+                      Endereço de Entrega:
+                    </h4>
+                    <p>
+                      {pedido.cliente?.endereco?.logradouro || "N/A"},{" "}
+                      {pedido.cliente?.endereco?.numero || "N/A"}
+                    </p>
+                    {pedido.cliente?.endereco?.complemento && (
+                      <p>Complemento: {pedido.cliente.endereco.complemento}</p>
+                    )}
+                    <p>
+                      {pedido.cliente?.endereco?.bairro || "N/A"} -{" "}
+                      {pedido.cliente?.endereco?.cidade || "N/A"},{" "}
+                      {pedido.cliente?.endereco?.estado || "N/A"}
+                    </p>
+                    <p>CEP: {pedido.cliente?.endereco?.cep || "N/A"}</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold text-md text-gray-800 mb-2">
+                      Itens do Pedido:
+                    </h4>
+                    <ul className="list-disc list-inside pl-4 text-sm space-y-1">
+                      {pedido.items?.map((item, index) => (
+                        <li key={index} className="text-gray-700">
+                          {item.nome || "Item sem nome"} (Qtd:{" "}
+                          {item.quantity || 0}) - R${" "}
+                          {parseFloat(item.precoUnitario || 0)
+                            .toFixed(2)
+                            .replace(".", ",")}
+                          {item.observacaoItem && (
+                            <p className="text-xs text-blue-600 pl-4">
+                              ↳ Obs: {item.observacaoItem}
+                            </p>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
                   <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end">
                     <button
                       onClick={() => deletarPedido(pedido.id)}
-                      className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+                      className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 text-sm shadow"
                     >
                       Excluir Pedido
                     </button>
@@ -309,7 +399,7 @@ const Admin = () => {
 
       <form
         onSubmit={handleSubmit}
-        className="space-y-4 mb-10 p-6 border rounded-lg shadow-lg bg-white"
+        className="space-y-4 mb-10 p-6 border rounded-lg shadow-lg bg-white mt-10"
       >
         <h2 className="text-2xl font-semibold mb-4 text-gray-700">
           {editandoId ? "Editar Produto" : "Adicionar Novo Produto"}
@@ -513,76 +603,59 @@ const Admin = () => {
         )}
       </form>
 
-      <div className="mb-10">
+      <div className="mb-10 mt-10">
         <h2 className="text-2xl font-semibold mb-4 text-gray-700">
           Produtos Cadastrados
         </h2>
         <div className="space-y-4">
-          {produtos.length === 0 ? (
-            <p className="text-gray-600">Nenhum produto cadastrado ainda.</p>
-          ) : (
-            produtos.map((produto) => (
-              <div
-                key={produto.id}
-                className="border p-4 rounded-lg shadow-md flex flex-col md:flex-row items-start md:items-center justify-between bg-white hover:shadow-lg transition-shadow"
-              >
-                <div className="flex items-center mb-4 md:mb-0 w-full md:w-auto flex-grow">
-                  {produto.imagem && (
-                    <img
-                      src={produto.imagem}
-                      alt={produto.nome}
-                      className="h-28 w-28 object-cover mr-4 rounded-lg flex-shrink-0 border"
-                    />
-                  )}
-                  <div className="flex-grow">
-                    <h3 className="font-bold text-xl text-gray-800">
-                      {produto.nome}
-                    </h3>
-                    <p
-                      className={`text-xs mb-1 ${
-                        produto.observacaoObrigatoria
-                          ? "text-red-500 font-semibold"
-                          : "text-gray-500"
-                      }`}
-                    >
-                      Observação:{" "}
-                      {produto.observacaoObrigatoria
-                        ? "Obrigatória"
-                        : "Opcional"}
-                    </p>
-                    <p className="text-gray-700 text-sm mb-1 line-clamp-2">
-                      {produto.descricao}
-                    </p>
-                    {/* Lógica de Preço */}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2 justify-end w-full md:w-auto md:ml-4 flex-shrink-0">
-                  <button
-                    onClick={() => editar(produto)}
-                    className="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 text-sm"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => deletar(produto.id)}
-                    className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 text-sm"
-                  >
-                    Excluir
-                  </button>
-                  <button
-                    onClick={() => definirDestaque(produto.id)}
-                    className={`px-4 py-2 rounded-md text-sm ${
-                      produto.destaque
-                        ? "bg-indigo-700 text-white"
-                        : "bg-indigo-500 text-white"
-                    }`}
-                  >
-                    {produto.destaque ? "Em Destaque" : "Definir Destaque"}
-                  </button>
+          {produtos.map((produto) => (
+            <div
+              key={produto.id}
+              className="border p-4 rounded-lg shadow-md flex flex-col md:flex-row items-start md:items-center justify-between bg-white hover:shadow-lg transition-shadow"
+            >
+              <div className="flex items-center mb-4 md:mb-0 w-full md:w-auto flex-grow">
+                {produto.imagem && (
+                  <img
+                    src={produto.imagem}
+                    alt={produto.nome}
+                    className="h-28 w-28 object-cover mr-4 rounded-lg flex-shrink-0 border"
+                  />
+                )}
+                <div className="flex-grow">
+                  <h3 className="font-bold text-xl text-gray-800">
+                    {produto.nome}
+                  </h3>
+                  <p className="text-gray-700 text-sm mb-1 line-clamp-2">
+                    {produto.descricao}
+                  </p>
                 </div>
               </div>
-            ))
-          )}
+              <div className="flex flex-wrap gap-2 justify-end w-full md:w-auto md:ml-4 flex-shrink-0">
+                <button
+                  onClick={() => editar(produto)}
+                  className="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 text-sm"
+                >
+                  Editar
+                </button>
+                <button
+                  onClick={() => deletar(produto.id)}
+                  className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 text-sm"
+                >
+                  Excluir
+                </button>
+                <button
+                  onClick={() => definirDestaque(produto.id)}
+                  className={`px-4 py-2 rounded-md text-sm ${
+                    produto.destaque
+                      ? "bg-indigo-700 text-white"
+                      : "bg-indigo-500 text-white"
+                  }`}
+                >
+                  {produto.destaque ? "Em Destaque" : "Definir Destaque"}
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

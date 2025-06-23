@@ -22,7 +22,9 @@ function Footer() {
           </a>
         </div>
         {/* Outras informações (opcional) */}
-        <p className="mt-3 text-xs">Rua Exemplo, 123 - Araruama, RJ</p>
+        <p className="mt-3 text-xs">
+          Avenida Nilo Peçanha nº167 sala 212 - Araruama, RJ
+        </p>
       </div>
     </footer>
   );

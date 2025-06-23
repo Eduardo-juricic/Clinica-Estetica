@@ -59,17 +59,16 @@ const services = [
   },
   {
     id: "5",
-    name: "Ozonioterapia e Estética Avançada",
+    name: "Ozonioterapia e Saúde Integrativa",
     professional: "Mari Helena Gonçalves de Carvalho (CRBio-2 12469/02)",
     description:
-      "Mestre em saúde pública com pós-graduação em ozonioterapia e estética, oferecendo tratamentos avançados para pós-operatório, terapia capilar, mesoterapia e mais.",
+      "Profissional com mestrado em Saúde Pública e múltiplas pós-graduações, incluindo Saúde e Estética e Ozonioterapia, oferecendo uma abordagem integrativa e qualificada.",
     details: [
-      "Drenagem linfática (facial, corporal, lipedema)",
-      "Pós operatório",
-      "Microagulhamento",
-      "Terapia capilar",
-      "Mesoterapia",
-      "Tratamento com eletroterapia corporal",
+      "Mestre em Saúde Pública/Saúde da Família",
+      "Pós-graduação em Saúde e Estética",
+      "Pós-graduação em Gestão e Sistemas de Serviço em Saúde",
+      "Pós-graduação em Hemoterapia",
+      "Ozônioterapeuta",
     ],
   },
 ];

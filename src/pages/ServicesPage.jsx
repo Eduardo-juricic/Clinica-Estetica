@@ -71,6 +71,26 @@ const services = [
       "Ozônioterapeuta",
     ],
   },
+  {
+    id: "6",
+    name: "Harmonização Facial e Corporal",
+    professional: "Dra. Talita Figueiredo, Especialista (CRF: 19970)",
+    description:
+      "Especialista em harmonização facial e corporal, oferecendo uma vasta gama de procedimentos para realçar sua beleza e promover o bem-estar.",
+    details: [
+      "Preenchimento com Ácido Hialurônico",
+      "Toxina Botulínica",
+      "Bioestimuladores de Colágeno",
+      "Fios de PDO",
+      "Lipoenzimática",
+      "Microagulhamento",
+      "Peelings",
+      "Lasers",
+      "Ultrassom Microfocado",
+      "Criolipólise",
+      "Ezbody",
+    ],
+  },
 ];
 
 function ServicesPageOption3() {

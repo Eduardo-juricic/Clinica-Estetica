@@ -1,3 +1,5 @@
+// src/components/Products.jsx
+
 import React, { useState, useEffect } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../FirebaseConfig";
@@ -8,7 +10,7 @@ function Products() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { addToCart } = useCart(); // Use o hook para acessar a função addToCart
+  const { addToCart } = useCart();
   const [notificationMessage, setNotificationMessage] = useState(null);
 
   const handleAddToCart = (product) => {
@@ -57,29 +59,35 @@ function Products() {
           {products.map((product) => (
             <div
               key={product.id}
-              className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col items-center p-6 mb-4"
+              // MODIFICAÇÃO: Adicionadas classes para transição e efeito hover
+              className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-2"
             >
               <img
                 src={product.imagem}
                 alt={product.nome}
-                className="w-full h-80 object-cover rounded-t-lg"
+                // MODIFICAÇÃO: Altura da imagem aumentada de h-80 para h-96
+                className="w-full h-96 object-cover"
               />
-              <div className="p-4 flex flex-col items-center">
-                <h3 className="font-semibold text-emerald-800 text-center mb-3 text-lg">
-                  {product.nome}
-                </h3>
-                <p className="text-emerald-800 text-sm text-center mb-4">
-                  {product.descricao}
-                </p>
-                <p className="text-emerald-600 font-bold text-xl mb-5">
-                  R$ {product.preco.toFixed(2)}
-                </p>
-                <button
-                  onClick={() => handleAddToCart(product)}
-                  className="bg-emerald-600 text-white hover:bg-emerald-300 font-bold py-3 px-8 rounded-full focus:outline-none focus:shadow-outline text-sm"
-                >
-                  Comprar
-                </button>
+              <div className="p-4 flex flex-col flex-grow">
+                <div className="flex-grow">
+                  <h3 className="font-semibold text-emerald-800 text-center mb-3 text-lg">
+                    {product.nome}
+                  </h3>
+                  <p className="text-emerald-800 text-sm text-center mb-4">
+                    {product.descricao}
+                  </p>
+                </div>
+                <div className="text-center mt-auto">
+                  <p className="text-emerald-600 font-bold text-xl mb-5">
+                    R$ {product.preco.toFixed(2)}
+                  </p>
+                  <button
+                    onClick={() => handleAddToCart(product)}
+                    className="bg-emerald-600 text-white hover:bg-emerald-300 font-bold py-3 px-8 rounded-full focus:outline-none focus:shadow-outline text-sm"
+                  >
+                    Comprar
+                  </button>
+                </div>
               </div>
             </div>
           ))}

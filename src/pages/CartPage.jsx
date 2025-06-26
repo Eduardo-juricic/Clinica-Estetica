@@ -1,4 +1,5 @@
-// src/pages/CartPage.jsx
+// src/pages/CartPage.jsx (VERSÃO COMPLETA E CORRIGIDA)
+
 import React, { useState } from "react";
 import { useCart } from "../context/CartContext";
 import { Link as RouterLink } from "react-router-dom";
@@ -176,6 +177,10 @@ function CartPage() {
   const finalTotal =
     subtotal + (selectedShipping ? Number(selectedShipping.price) : 0);
 
+  /**
+   * --- FUNÇÃO CORRIGIDA ---
+   * Esta função foi reestruturada para seguir as novas regras de segurança.
+   */
   const handleCheckout = async (e) => {
     e.preventDefault();
     if (!validateForm()) {
@@ -185,6 +190,8 @@ function CartPage() {
     setLoadingPayment(true);
     let orderId = null;
 
+    // ETAPA 1: Criar o pedido no Firestore (Isto permanece igual, está correto)
+    // Este é o registro interno do pedido, antes mesmo do pagamento ser processado.
     try {
       const newOrderRef = await addDoc(collection(db, "pedidos"), {
         cliente: {
@@ -207,6 +214,7 @@ function CartPage() {
           nome: item.nome,
           quantity: item.quantity,
           precoUnitario: parseFloat(
+            // Este preço é apenas para seu registro interno
             item.preco_promocional &&
               Number(item.preco_promocional) < Number(item.preco)
               ? item.preco_promocional
@@ -231,34 +239,13 @@ function CartPage() {
       return;
     }
 
-    const itemsPayload = cartItems.map((item) => ({
+    // ETAPA 2: Preparar o payload SEGURO para a Cloud Function
+    // --- PONTO CRÍTICO DA CORREÇÃO DE SEGURANÇA ---
+    // O payload de itens agora envia APENAS o ID e a quantidade. Nenhum preço é enviado.
+    const itemsPayloadSeguro = cartItems.map((item) => ({
       id: item.id,
-      title: item.nome,
-      description: item.descricao || item.nome,
       quantity: item.quantity,
-      unit_price: parseFloat(
-        item.preco_promocional &&
-          Number(item.preco_promocional) < Number(item.preco)
-          ? item.preco_promocional
-          : item.preco
-      ),
     }));
-
-    if (selectedShipping && Number(selectedShipping.price) > 0) {
-      itemsPayload.push({
-        id: "shipping_cost",
-        title: `Frete - ${selectedShipping.name}`,
-        description: "Custo de envio",
-        quantity: 1,
-        unit_price: Number(selectedShipping.price),
-      });
-    }
-
-    const functionsInstance = getFunctions(undefined, "southamerica-east1");
-    const createPreferenceCallable = httpsCallable(
-      functionsInstance,
-      "createPaymentPreference"
-    );
 
     const nomeArray = cliente.nomeCompleto.trim().split(" ");
     const payerInfoPayload = {
@@ -266,21 +253,34 @@ function CartPage() {
       surname: nomeArray.slice(1).join(" "),
       email: cliente.email,
     };
+
     const baseUrl = window.location.origin;
     const webhookUrl = import.meta.env.VITE_MERCADO_PAGO_WEBHOOK_URL;
 
+    // Montar o payload final para a função, passando o frete como um objeto separado.
+    const payloadParaFuncao = {
+      items: itemsPayloadSeguro,
+      payerInfo: payerInfoPayload,
+      selectedShipping: selectedShipping, // A backend agora lida com o preço do frete
+      externalReference: orderId,
+      backUrls: {
+        success: `${baseUrl}/pagamento/sucesso?order_id=${orderId}`,
+        failure: `${baseUrl}/pagamento/falha?order_id=${orderId}`,
+        pending: `${baseUrl}/pagamento/pendente?order_id=${orderId}`,
+      },
+      notificationUrl: webhookUrl,
+    };
+
+    // ETAPA 3: Chamar a Cloud Function com os dados seguros
     try {
-      const result = await createPreferenceCallable({
-        items: itemsPayload,
-        payerInfo: payerInfoPayload,
-        externalReference: orderId,
-        backUrls: {
-          success: `${baseUrl}/pagamento/sucesso?order_id=${orderId}`,
-          failure: `${baseUrl}/pagamento/falha?order_id=${orderId}`,
-          pending: `${baseUrl}/pagamento/pendente?order_id=${orderId}`,
-        },
-        notificationUrl: webhookUrl,
-      });
+      const functionsInstance = getFunctions(undefined, "southamerica-east1");
+      const createPreferenceCallable = httpsCallable(
+        functionsInstance,
+        "createPaymentPreference"
+      );
+
+      const result = await createPreferenceCallable(payloadParaFuncao); // Usa o novo payload seguro
+
       if (result.data && result.data.init_point) {
         clearCart();
         window.location.href = result.data.init_point;
@@ -310,6 +310,7 @@ function CartPage() {
     );
   }
 
+  // O restante do seu JSX permanece o mesmo
   return (
     <div className="container mx-auto px-4 py-16">
       <h2 className="text-3xl font-extrabold mb-8 text-gray-900 border-b pb-4">

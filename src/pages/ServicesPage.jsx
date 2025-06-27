@@ -173,7 +173,7 @@ function ServicesPage() {
           // --- LÓGICA DO WHATSAPP ADICIONADA AQUI ---
           // IMPORTANTE: Substitua o número abaixo pelo da sua clínica
           const whatsappNumber = "5522988149005"; // Ex: 5521999998888
-          const message = `Olá! Gostaria de agendar ou saber mais sobre o serviço de "${service.name}".`;
+          const message = `Olá! Gostaria de agendar o serviço de "${service.name}".`;
           const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
             message
           )}`;

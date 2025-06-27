@@ -91,9 +91,17 @@ const services = [
       "Ezbody",
     ],
   },
+  {
+    id: "7",
+    name: "Psicologia Clínica",
+    professional: "Gleice Alves, Psicóloga Clínica (CRP 23996-05)",
+    description:
+      "Oferecendo suporte psicológico através da abordagem da Terapia Cognitivo-Comportamental (TCC) para auxiliar no bem-estar e saúde mental.",
+    details: ["Terapia Cognitivo-Comportamental (TCC)"],
+  },
 ];
 
-function ServicesPageOption3() {
+function ServicesPage() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -161,53 +169,64 @@ function ServicesPageOption3() {
         initial="hidden"
         animate="visible"
       >
-        {services.map((service) => (
-          <motion.div
-            key={service.id}
-            className="bg-white rounded-xl border border-gray-200 shadow-md hover:border-emerald-500 hover:shadow-xl transition-all duration-300 flex flex-col p-6"
-            variants={itemVariants}
-            whileHover={{
-              y: -5,
-              boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            <h2 className="text-2xl font-bold text-emerald-800 mb-2 text-center">
-              {service.name}
-            </h2>
-            <p className="text-gray-500 text-md mb-4 text-center italic">
-              {service.professional}
-            </p>
-            <p className="text-gray-700 mb-4 text-center flex-grow">
-              {service.description}
-            </p>
-            <div className="mt-auto">
-              <h3 className="text-lg font-semibold text-emerald-700 mb-2">
-                Serviços Oferecidos:
-              </h3>
-              <ul className="list-disc list-inside text-gray-600 mb-4 space-y-1 text-sm">
-                {service.details.map((detail, detailIndex) => (
-                  <li key={detailIndex}>{detail}</li>
-                ))}
-              </ul>
-              {/* MODIFICADO: O botão agora é um link (tag <a>) */}
-              <motion.a
-                href="https://wa.me/message/BMZ37JTK3G6UJ1"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block bg-emerald-500 text-white font-semibold py-3 px-6 rounded-full w-full text-center
-                          focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-opacity-75"
-                variants={buttonHoverVariants}
-                initial="initial"
-                whileHover="hover"
-              >
-                Agendar Serviço
-              </motion.a>
-            </div>
-          </motion.div>
-        ))}
+        {services.map((service) => {
+          // --- LÓGICA DO WHATSAPP ADICIONADA AQUI ---
+          // IMPORTANTE: Substitua o número abaixo pelo da sua clínica
+          const whatsappNumber = "5522988149005"; // Ex: 5521999998888
+          const message = `Olá! Gostaria de agendar ou saber mais sobre o serviço de "${service.name}".`;
+          const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+            message
+          )}`;
+
+          console.log("URL Gerada:", whatsappUrl);
+
+          return (
+            <motion.div
+              key={service.id}
+              className="bg-white rounded-xl border border-gray-200 shadow-md hover:border-emerald-500 hover:shadow-xl transition-all duration-300 flex flex-col p-6"
+              variants={itemVariants}
+              whileHover={{
+                y: -5,
+                boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.1)",
+              }}
+            >
+              <h2 className="text-2xl font-bold text-emerald-800 mb-2 text-center">
+                {service.name}
+              </h2>
+              <p className="text-gray-500 text-md mb-4 text-center italic">
+                {service.professional}
+              </p>
+              <p className="text-gray-700 mb-4 text-center flex-grow">
+                {service.description}
+              </p>
+              <div className="mt-auto">
+                <h3 className="text-lg font-semibold text-emerald-700 mb-2">
+                  Serviços Oferecidos:
+                </h3>
+                <ul className="list-disc list-inside text-gray-600 mb-4 space-y-1 text-sm">
+                  {service.details.map((detail, detailIndex) => (
+                    <li key={detailIndex}>{detail}</li>
+                  ))}
+                </ul>
+                <motion.a
+                  href={whatsappUrl} // Usando a URL dinâmica
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block bg-emerald-500 text-white font-semibold py-3 px-6 rounded-full w-full text-center
+                            focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-opacity-75"
+                  variants={buttonHoverVariants}
+                  initial="initial"
+                  whileHover="hover"
+                >
+                  Agendar Serviço
+                </motion.a>
+              </div>
+            </motion.div>
+          );
+        })}
       </motion.div>
     </motion.div>
   );
 }
 
-export default ServicesPageOption3;
+export default ServicesPage;

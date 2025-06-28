@@ -4,7 +4,11 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 
+// NOVO: Importa o componente da animação
+import ConstellationCanvas from "../components/ConstellationCanvas";
+
 const services = [
+  // ... (seu array de serviços continua o mesmo, sem alterações)
   {
     id: "1",
     name: "Dermatologia",
@@ -111,121 +115,135 @@ function ServicesPage() {
     visible: {
       opacity: 1,
       transition: {
+        // Adiciona um pequeno atraso entre a animação de cada card
         staggerChildren: 0.1,
       },
     },
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 30, scale: 0.95 },
+    // Estado inicial: invisível, 50px abaixo e levemente rotacionado
+    hidden: { opacity: 0, y: 50, rotate: -2 },
+    // Estado final: totalmente visível e na posição original
     visible: {
       opacity: 1,
       y: 0,
-      scale: 1,
+      rotate: 0,
       transition: {
-        duration: 0.6,
-        ease: "easeOut",
+        // Animação com efeito de mola para um movimento mais natural
+        type: "spring",
+        stiffness: 100,
+        damping: 15,
       },
     },
   };
 
   const buttonHoverVariants = {
-    hover: {
-      backgroundColor: "#047857", // emerald-800
-      color: "#ffffff",
-      scale: 1.02,
-      transition: { duration: 0.2 },
-    },
+    // Estado inicial do botão (não estamos mudando nada, apenas definindo)
     initial: {
-      backgroundColor: "#10B981", // emerald-500
-      color: "#ffffff",
+      scale: 1,
+      boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.1)",
+    },
+    // Efeito ao passar o mouse por cima
+    hover: {
+      scale: 1.05, // Aumenta levemente o tamanho
+      boxShadow: "0px 6px 15px rgba(0, 0, 0, 0.2)", // Aumenta a sombra
+      transition: {
+        type: "spring",
+        stiffness: 300,
+        damping: 20,
+      },
     },
   };
-
   return (
-    <motion.div
-      className="container mx-auto px-4 py-16"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      <div className="flex items-center mb-8">
-        <Link
-          to="/"
-          className="text-emerald-600 hover:text-emerald-800 transition duration-300 flex items-center"
-        >
-          <ArrowLeftIcon className="h-6 w-6 inline-block mr-2" />
-          <span className="align-middle">Voltar para o Início</span>
-        </Link>
+    // ALTERADO: Adicionado 'bg-gray-900' para um fundo escuro que realça o dourado
+    <div className="relative overflow-hidden bg-gray-900">
+      {/* NOVO: Componente da animação no fundo */}
+      <div className="absolute inset-0 z-0 opacity-50">
+        <ConstellationCanvas />
       </div>
 
-      <h1 className="text-4xl md:text-5xl font-extrabold text-emerald-800 mb-10 text-center">
-        Nossos Serviços Médicos e Estéticos
-      </h1>
-
+      {/* ALTERADO: Conteúdo com z-index para ficar na frente */}
       <motion.div
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-10"
+        className="relative z-10 container mx-auto px-4 py-16"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-        {services.map((service) => {
-          // --- LÓGICA DO WHATSAPP ADICIONADA AQUI ---
-          // IMPORTANTE: Substitua o número abaixo pelo da sua clínica
-          const whatsappNumber = "5522988149005"; // Ex: 5521999998888
-          const message = `Olá! Gostaria de agendar o serviço de ${service.name}.`;
-          const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
-            message
-          )}`;
+        {/* ... O resto do seu JSX (Link para voltar, título, map dos serviços) continua exatamente o mesmo ... */}
+        {/* Importante: Mudei o estilo dos cards para combinar com o fundo escuro */}
+        <div className="flex items-center mb-8">
+          <Link
+            to="/"
+            className="text-emerald-400 hover:text-emerald-200 transition duration-300 flex items-center"
+          >
+            <ArrowLeftIcon className="h-6 w-6 inline-block mr-2" />
+            <span className="align-middle">Voltar para o Início</span>
+          </Link>
+        </div>
 
-          console.log("URL Gerada:", whatsappUrl);
+        <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-10 text-center">
+          Nossos Serviços Médicos e Estéticos
+        </h1>
 
-          return (
-            <motion.div
-              key={service.id}
-              className="bg-white rounded-xl border border-gray-200 shadow-md hover:border-emerald-500 hover:shadow-xl transition-all duration-300 flex flex-col p-6"
-              variants={itemVariants}
-              whileHover={{
-                y: -5,
-                boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.1)",
-              }}
-            >
-              <h2 className="text-2xl font-bold text-emerald-800 mb-2 text-center">
-                {service.name}
-              </h2>
-              <p className="text-gray-500 text-md mb-4 text-center italic">
-                {service.professional}
-              </p>
-              <p className="text-gray-700 mb-4 text-center flex-grow">
-                {service.description}
-              </p>
-              <div className="mt-auto">
-                <h3 className="text-lg font-semibold text-emerald-700 mb-2">
-                  Serviços Oferecidos:
-                </h3>
-                <ul className="list-disc list-inside text-gray-600 mb-4 space-y-1 text-sm">
-                  {service.details.map((detail, detailIndex) => (
-                    <li key={detailIndex}>{detail}</li>
-                  ))}
-                </ul>
-                <motion.a
-                  href={whatsappUrl} // Usando a URL dinâmica
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block bg-emerald-500 text-white font-semibold py-3 px-6 rounded-full w-full text-center
-                            focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-opacity-75"
-                  variants={buttonHoverVariants}
-                  initial="initial"
-                  whileHover="hover"
-                >
-                  Agendar Serviço
-                </motion.a>
-              </div>
-            </motion.div>
-          );
-        })}
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-10"
+          variants={containerVariants}
+        >
+          {services.map((service) => {
+            const whatsappNumber = "5522988149005";
+            const message = `Olá! Gostaria de agendar o serviço de ${service.name}.`;
+            const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+              message
+            )}`;
+
+            return (
+              // ALTERADO: Estilo dos cards para combinar com o tema escuro
+              <motion.div
+                key={service.id}
+                className="bg-gray-800/60 backdrop-blur-md rounded-xl border border-gray-700 shadow-lg hover:border-emerald-500 hover:shadow-emerald-500/10 transition-all duration-300 flex flex-col p-6"
+                variants={itemVariants}
+                whileHover={{
+                  y: -5,
+                  boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.2)",
+                }}
+              >
+                <h2 className="text-2xl font-bold text-white mb-2 text-center">
+                  {service.name}
+                </h2>
+                <p className="text-gray-400 text-md mb-4 text-center italic">
+                  {service.professional}
+                </p>
+                <p className="text-gray-300 mb-4 text-center flex-grow">
+                  {service.description}
+                </p>
+                <div className="mt-auto">
+                  <h3 className="text-lg font-semibold text-emerald-400 mb-2">
+                    Serviços Oferecidos:
+                  </h3>
+                  <ul className="list-disc list-inside text-gray-300 mb-4 space-y-1 text-sm">
+                    {service.details.map((detail, i) => (
+                      <li key={i}>{detail}</li>
+                    ))}
+                  </ul>
+                  <motion.a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block bg-emerald-500 text-white font-semibold py-3 px-6 rounded-full w-full text-center focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-opacity-75"
+                    variants={buttonHoverVariants}
+                    initial="initial"
+                    whileHover="hover"
+                  >
+                    Agendar Serviço
+                  </motion.a>
+                </div>
+              </motion.div>
+            );
+          })}
+        </motion.div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }
 

@@ -5,6 +5,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "../FirebaseConfig";
 import { useCart } from "../context/CartContext";
 import Notification from "./Notification";
+import { motion } from "framer-motion";
 
 function Products() {
   const [products, setProducts] = useState([]);
@@ -13,9 +14,34 @@ function Products() {
   const { addToCart } = useCart();
   const [notificationMessage, setNotificationMessage] = useState(null);
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        type: "spring",
+        stiffness: 120,
+      },
+    },
+  };
+
   const handleAddToCart = (product) => {
     addToCart(product);
     setNotificationMessage(`${product.nome} adicionado ao carrinho!`);
+    setTimeout(() => {
+      setNotificationMessage(null);
+    }, 3000);
   };
 
   useEffect(() => {
@@ -55,17 +81,29 @@ function Products() {
         <h2 className="text-4xl font-bold mb-6 text-emerald-700 text-center">
           Nossos Produtos
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        {/* MODIFICAÇÃO: Trocado 'animate' por 'whileInView' para ativar a animação com o scroll */}
+        <motion.div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8"
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.1 }} // Configurações da viewport
+        >
           {products.map((product) => (
-            <div
+            <motion.div
               key={product.id}
-              // MODIFICAÇÃO: Adicionadas classes para transição e efeito hover
-              className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-2"
+              className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col"
+              variants={itemVariants}
+              whileHover={{
+                y: -8,
+                boxShadow:
+                  "0px 20px 25px -5px rgba(0, 0, 0, 0.1), 0px 10px 10px -5px rgba(0, 0, 0, 0.04)",
+              }}
+              transition={{ type: "spring", stiffness: 300 }}
             >
               <img
                 src={product.imagem}
                 alt={product.nome}
-                // MODIFICAÇÃO: Altura da imagem aumentada de h-80 para h-96
                 className="w-full h-96 object-cover"
               />
               <div className="p-4 flex flex-col flex-grow">
@@ -89,9 +127,9 @@ function Products() {
                   </button>
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </div>
       {notificationMessage && <Notification message={notificationMessage} />}
     </section>

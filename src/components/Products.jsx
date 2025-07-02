@@ -14,26 +14,22 @@ function Products() {
   const { addToCart } = useCart();
   const [notificationMessage, setNotificationMessage] = useState(null);
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  };
-
+  // MODIFICAÇÃO: containerVariants não é mais necessário.
+  // A variante do item agora aceita um índice (i) para o delay.
   const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
+    hidden: { y: 30, opacity: 0 },
+    // A variante "visible" agora é uma função que recebe o índice personalizado.
+    visible: (i) => ({
       y: 0,
       opacity: 1,
       transition: {
         type: "spring",
-        stiffness: 120,
+        stiffness: 100,
+        damping: 15,
+        // O atraso é calculado com base no índice do item para criar o efeito escalonado.
+        delay: i * 0.07,
       },
-    },
+    }),
   };
 
   const handleAddToCart = (product) => {
@@ -81,26 +77,28 @@ function Products() {
         <h2 className="text-4xl font-bold mb-6 text-emerald-700 text-center">
           Nossos Produtos
         </h2>
-        {/* MODIFICAÇÃO: Trocado 'animate' por 'whileInView' para ativar a animação com o scroll */}
-        <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8"
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.1 }} // Configurações da viewport
-        >
-          {products.map((product) => (
+        {/* MODIFICAÇÃO: A animação foi removida do container e ele voltou a ser uma div normal. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+          {/* Adicionamos 'index' ao map para usá-lo na animação. */}
+          {products.map((product, index) => (
+            // MODIFICAÇÃO: A animação agora é controlada individualmente por cada card.
             <motion.div
               key={product.id}
               className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col"
               variants={itemVariants}
+              initial="hidden"
+              whileInView="visible"
+              // A animação dispara quando 20% do card está visível, o que é mais confiável.
+              viewport={{ once: true, amount: 0.2 }}
+              // Passa o 'index' como uma propriedade personalizada para as variantes.
+              custom={index}
               whileHover={{
                 y: -8,
                 boxShadow:
                   "0px 20px 25px -5px rgba(0, 0, 0, 0.1), 0px 10px 10px -5px rgba(0, 0, 0, 0.04)",
               }}
-              transition={{ type: "spring", stiffness: 300 }}
             >
+              {/* O conteúdo do card permanece o mesmo */}
               <img
                 src={product.imagem}
                 alt={product.nome}
@@ -129,7 +127,7 @@ function Products() {
               </div>
             </motion.div>
           ))}
-        </motion.div>
+        </div>
       </div>
       {notificationMessage && <Notification message={notificationMessage} />}
     </section>

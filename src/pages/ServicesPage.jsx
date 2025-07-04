@@ -15,14 +15,7 @@ const services = [
       "Dra. Gisele Gonçalves de Carvalho, Biomédica Esteta e Fisioterapeuta Dermato Funcional (CRBM1: 36353)",
     description:
       "Tratamentos avançados em biomedicina estética e fisioterapia dermato funcional para promover a saúde e a beleza da sua pele, com foco em resultados e bem-estar.",
-    details: [
-      "Avaliação Dermato Funcional",
-      "Tratamentos para Gordura Localizada",
-      "Redução de Celulite e Estrias",
-      "Rejuvenescimento Facial",
-      "Peelings e Limpeza de Pele Profunda",
-      "Pós-operatório de Cirurgias Plásticas",
-    ],
+    details: ["Avaliação Dermato Funcional", "Biomédica Esteta"],
   },
   {
     id: "1",

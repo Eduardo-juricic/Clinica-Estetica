@@ -4,11 +4,26 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 
-// NOVO: Importa o componente da animação
 import ConstellationCanvas from "../components/ConstellationCanvas";
 
 const services = [
-  // ... (seu array de serviços continua o mesmo, sem alterações)
+  // ... (a lista de serviços continua a mesma, com a Dra. Gisele no topo)
+  {
+    id: "8",
+    name: "Biomedicina Estética e Fisioterapia Dermato Funcional",
+    professional:
+      "Dra. Gisele Gonçalves de Carvalho, Biomédica Esteta e Fisioterapeuta Dermato Funcional (CRBM1: 36353)",
+    description:
+      "Tratamentos avançados em biomedicina estética e fisioterapia dermato funcional para promover a saúde e a beleza da sua pele, com foco em resultados e bem-estar.",
+    details: [
+      "Avaliação Dermato Funcional",
+      "Tratamentos para Gordura Localizada",
+      "Redução de Celulite e Estrias",
+      "Rejuvenescimento Facial",
+      "Peelings e Limpeza de Pele Profunda",
+      "Pós-operatório de Cirurgias Plásticas",
+    ],
+  },
   {
     id: "1",
     name: "Dermatologia",
@@ -115,22 +130,18 @@ function ServicesPage() {
     visible: {
       opacity: 1,
       transition: {
-        // Adiciona um pequeno atraso entre a animação de cada card
         staggerChildren: 0.1,
       },
     },
   };
 
   const itemVariants = {
-    // Estado inicial: invisível, 50px abaixo e levemente rotacionado
     hidden: { opacity: 0, y: 50, rotate: -2 },
-    // Estado final: totalmente visível e na posição original
     visible: {
       opacity: 1,
       y: 0,
       rotate: 0,
       transition: {
-        // Animação com efeito de mola para um movimento mais natural
         type: "spring",
         stiffness: 100,
         damping: 15,
@@ -139,15 +150,13 @@ function ServicesPage() {
   };
 
   const buttonHoverVariants = {
-    // Estado inicial do botão (não estamos mudando nada, apenas definindo)
     initial: {
       scale: 1,
       boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.1)",
     },
-    // Efeito ao passar o mouse por cima
     hover: {
-      scale: 1.05, // Aumenta levemente o tamanho
-      boxShadow: "0px 6px 15px rgba(0, 0, 0, 0.2)", // Aumenta a sombra
+      scale: 1.05,
+      boxShadow: "0px 6px 15px rgba(0, 0, 0, 0.2)",
       transition: {
         type: "spring",
         stiffness: 300,
@@ -155,23 +164,19 @@ function ServicesPage() {
       },
     },
   };
+
   return (
-    // ALTERADO: Adicionado 'bg-gray-900' para um fundo escuro que realça o dourado
     <div className="relative overflow-hidden bg-gray-900">
-      {/* NOVO: Componente da animação no fundo */}
       <div className="absolute inset-0 z-0 opacity-50">
         <ConstellationCanvas />
       </div>
 
-      {/* ALTERADO: Conteúdo com z-index para ficar na frente */}
       <motion.div
         className="relative z-10 container mx-auto px-4 py-16"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-        {/* ... O resto do seu JSX (Link para voltar, título, map dos serviços) continua exatamente o mesmo ... */}
-        {/* Importante: Mudei o estilo dos cards para combinar com o fundo escuro */}
         <div className="flex items-center mb-8">
           <Link
             to="/"
@@ -198,7 +203,6 @@ function ServicesPage() {
             )}`;
 
             return (
-              // ALTERADO: Estilo dos cards para combinar com o tema escuro
               <motion.div
                 key={service.id}
                 className="bg-gray-800/60 backdrop-blur-md rounded-xl border border-gray-700 shadow-lg hover:border-emerald-500 hover:shadow-emerald-500/10 transition-all duration-300 flex flex-col p-6"
@@ -208,16 +212,17 @@ function ServicesPage() {
                   boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.2)",
                 }}
               >
-                <h2 className="text-2xl font-bold text-white mb-2 text-center">
-                  {service.name}
-                </h2>
-                <p className="text-gray-400 text-md mb-4 text-center italic">
-                  {service.professional}
-                </p>
-                <p className="text-gray-300 mb-4 text-center flex-grow">
-                  {service.description}
-                </p>
-                <div className="mt-auto">
+                {/* Agrupa todo o conteúdo que deve ficar no topo */}
+                <div>
+                  <h2 className="text-2xl font-bold text-white mb-2 text-center">
+                    {service.name}
+                  </h2>
+                  <p className="text-gray-400 text-md mb-4 text-center italic">
+                    {service.professional}
+                  </p>
+                  <p className="text-gray-300 mb-4 text-center">
+                    {service.description}
+                  </p>
                   <h3 className="text-lg font-semibold text-emerald-400 mb-2">
                     Serviços Oferecidos:
                   </h3>
@@ -226,6 +231,15 @@ function ServicesPage() {
                       <li key={i}>{detail}</li>
                     ))}
                   </ul>
+                </div>
+
+                {/* Este 'div' vazio com 'flex-grow' é o espaçador. Ele vai empurrar o botão para baixo. */}
+                <div className="flex-grow" />
+
+                {/* O botão fica no final, sem a necessidade de 'mt-auto' */}
+                <div className="pt-4">
+                  {" "}
+                  {/* pt-4 para dar um espaço acima do botão */}
                   <motion.a
                     href={whatsappUrl}
                     target="_blank"

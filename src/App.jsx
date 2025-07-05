@@ -7,6 +7,7 @@ import FeaturedProduct from "./components/FeaturedProduct";
 import ServicesCallToAction from "./components/ServicesCallToAction"; // Importe o novo componente
 import Footer from "./components/Footer";
 import { getProdutoDestaque } from "./utils/firebaseUtils"; // Importe a função
+import LocationInfo from "./components/LocationInfo";
 
 function App() {
   const [produtoDestaque, setProdutoDestaque] = useState(null);
@@ -45,6 +46,7 @@ function App() {
       <Hero produtoDestaque={produtoDestaque} />{" "}
       {/* Passe a prop para o Hero */}
       <Products />
+      <LocationInfo />
       <ServicesCallToAction />
       <FeaturedProduct />{" "}
       {/* O FeaturedProduct também fará sua própria busca */}

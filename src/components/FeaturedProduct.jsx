@@ -68,7 +68,7 @@ function FeaturedProduct({ produtoDestaque }) {
             <p className="text-md lg:text-lg text-gray-700 mb-4">
               {produtoDestaque.destaque_curto || produtoDestaque.descricao}
             </p>
-            <p className="text-xl lg:text-2xl font-bold text-pink-700 mb-6">
+            <p className="text-xl lg:text-2xl font-bold text-emerald-600 mb-6">
               R$ {Number(produtoDestaque.preco).toFixed(2)}
             </p>
             <Link

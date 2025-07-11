@@ -1,4 +1,4 @@
-// src/pages/CartPage.jsx (VERSÃO COMPLETA E CORRIGIDA)
+// src/pages/CartPage.jsx (VERSÃO COM O BOTÃO DE CHECKOUT CONDICIONAL)
 
 import React, { useState } from "react";
 import { useCart } from "../context/CartContext";
@@ -177,10 +177,40 @@ function CartPage() {
   const finalTotal =
     subtotal + (selectedShipping ? Number(selectedShipping.price) : 0);
 
-  /**
-   * --- FUNÇÃO CORRIGIDA ---
-   * Esta função foi reestruturada para seguir as novas regras de segurança.
-   */
+  // --- NOVA LÓGICA PARA DESABILITAR O BOTÃO ---
+  const isFormComplete = () => {
+    return (
+      !!cliente.nomeCompleto.trim() &&
+      !!cliente.email.trim() &&
+      /\S+@\S+\.\S+/.test(cliente.email) &&
+      !!cliente.telefone.trim() &&
+      /^\d{10,11}$/.test(cliente.telefone.replace(/\D/g, "")) &&
+      !!cliente.cpf.trim() &&
+      cliente.cpf.replace(/\D/g, "").length === 11 &&
+      !!cliente.cep.trim() &&
+      cliente.cep.replace(/\D/g, "").length === 8 &&
+      !!cliente.logradouro.trim() &&
+      !!cliente.numero.trim() &&
+      !!cliente.bairro.trim() &&
+      !!cliente.cidade.trim() &&
+      !!cliente.estado.trim() &&
+      /^[A-Z]{2}$/i.test(cliente.estado) &&
+      cartItems.every(
+        (item) =>
+          !item.observacaoObrigatoria ||
+          (item.observacaoObrigatoria &&
+            !!item.observacaoItem &&
+            !!item.observacaoItem.trim())
+      )
+    );
+  };
+
+  const isCheckoutDisabled =
+    loadingPayment ||
+    cartItems.length === 0 ||
+    !selectedShipping ||
+    !isFormComplete();
+
   const handleCheckout = async (e) => {
     e.preventDefault();
     if (!validateForm()) {
@@ -190,8 +220,6 @@ function CartPage() {
     setLoadingPayment(true);
     let orderId = null;
 
-    // ETAPA 1: Criar o pedido no Firestore (Isto permanece igual, está correto)
-    // Este é o registro interno do pedido, antes mesmo do pagamento ser processado.
     try {
       const newOrderRef = await addDoc(collection(db, "pedidos"), {
         cliente: {
@@ -214,7 +242,6 @@ function CartPage() {
           nome: item.nome,
           quantity: item.quantity,
           precoUnitario: parseFloat(
-            // Este preço é apenas para seu registro interno
             item.preco_promocional &&
               Number(item.preco_promocional) < Number(item.preco)
               ? item.preco_promocional
@@ -239,9 +266,6 @@ function CartPage() {
       return;
     }
 
-    // ETAPA 2: Preparar o payload SEGURO para a Cloud Function
-    // --- PONTO CRÍTICO DA CORREÇÃO DE SEGURANÇA ---
-    // O payload de itens agora envia APENAS o ID e a quantidade. Nenhum preço é enviado.
     const itemsPayloadSeguro = cartItems.map((item) => ({
       id: item.id,
       quantity: item.quantity,
@@ -257,11 +281,10 @@ function CartPage() {
     const baseUrl = window.location.origin;
     const webhookUrl = import.meta.env.VITE_MERCADO_PAGO_WEBHOOK_URL;
 
-    // Montar o payload final para a função, passando o frete como um objeto separado.
     const payloadParaFuncao = {
       items: itemsPayloadSeguro,
       payerInfo: payerInfoPayload,
-      selectedShipping: selectedShipping, // A backend agora lida com o preço do frete
+      selectedShipping: selectedShipping,
       externalReference: orderId,
       backUrls: {
         success: `${baseUrl}/pagamento/sucesso?order_id=${orderId}`,
@@ -271,7 +294,6 @@ function CartPage() {
       notificationUrl: webhookUrl,
     };
 
-    // ETAPA 3: Chamar a Cloud Function com os dados seguros
     try {
       const functionsInstance = getFunctions(undefined, "southamerica-east1");
       const createPreferenceCallable = httpsCallable(
@@ -279,7 +301,7 @@ function CartPage() {
         "createPaymentPreference"
       );
 
-      const result = await createPreferenceCallable(payloadParaFuncao); // Usa o novo payload seguro
+      const result = await createPreferenceCallable(payloadParaFuncao);
 
       if (result.data && result.data.init_point) {
         clearCart();
@@ -310,7 +332,6 @@ function CartPage() {
     );
   }
 
-  // O restante do seu JSX permanece o mesmo
   return (
     <div className="container mx-auto px-4 py-16">
       <h2 className="text-3xl font-extrabold mb-8 text-gray-900 border-b pb-4">
@@ -842,8 +863,8 @@ function CartPage() {
           <button
             type="submit"
             form="checkout-form"
-            disabled={loadingPayment || cartItems.length === 0}
-            className="w-full mt-6 bg-emerald-500 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-md text-lg shadow-lg disabled:opacity-50"
+            disabled={isCheckoutDisabled} // --- BOTÃO MODIFICADO ---
+            className="w-full mt-6 bg-emerald-500 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-md text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loadingPayment ? "Processando..." : "Finalizar Compra e Pagar"}
           </button>

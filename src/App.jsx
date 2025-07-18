@@ -41,9 +41,7 @@ function App() {
   if (loadingDestaque) {
     // Você pode criar um componente de "loading" mais elaborado se preferir
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        Carregando...
-      </div>
+      <div className="min-h-screen flex items-center justify-center"></div>
     );
   }
 
